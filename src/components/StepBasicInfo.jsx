@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { COUNTRIES, ROLES } from '../lib/constants';
-import { ArrowRight, ArrowLeft, User, Building2, Briefcase, Phone, Globe, Mail, Link as LinkIcon, Linkedin, AlertCircle } from 'lucide-react';
+import { ArrowRight, ArrowLeft, User, Building2, Briefcase, Phone, Globe, Mail, Link as LinkIcon, Linkedin, Share2, AlertCircle } from 'lucide-react';
 
 export default function StepBasicInfo({ formData, onChange, onNext, onBack, roleId }) {
   const roleObj = ROLES.find(r => r.id === roleId);
@@ -250,12 +250,12 @@ export default function StepBasicInfo({ formData, onChange, onNext, onBack, role
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {/* Email */}
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1 flex items-center gap-1">
                 <Mail className="w-3 h-3 text-slate-400" />
-                <span>Email</span>
+                <span>Email (Optional)</span>
               </label>
               <input
                 type="email"
@@ -278,17 +278,17 @@ export default function StepBasicInfo({ formData, onChange, onNext, onBack, role
               )}
             </div>
 
-            {/* Website */}
+            {/* Website (Simple Text Input) */}
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1 flex items-center gap-1">
                 <LinkIcon className="w-3 h-3 text-slate-400" />
-                <span>Website</span>
+                <span>Website (Optional)</span>
               </label>
               <input
-                type="url"
+                type="text"
                 value={formData.website || ''}
                 onChange={(e) => onChange('website', e.target.value)}
-                placeholder="https://company.com"
+                placeholder="e.g. company.com"
                 className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 text-xs font-medium focus:bg-white focus:border-ocean-950 outline-none"
               />
             </div>
@@ -297,13 +297,28 @@ export default function StepBasicInfo({ formData, onChange, onNext, onBack, role
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1 flex items-center gap-1">
                 <Linkedin className="w-3 h-3 text-slate-400" />
-                <span>LinkedIn</span>
+                <span>LinkedIn (Optional)</span>
               </label>
               <input
                 type="text"
                 value={formData.linkedin || ''}
                 onChange={(e) => onChange('linkedin', e.target.value)}
                 placeholder="linkedin.com/in/username"
+                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 text-xs font-medium focus:bg-white focus:border-ocean-950 outline-none"
+              />
+            </div>
+
+            {/* Social Media Link or ID */}
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1 flex items-center gap-1">
+                <Share2 className="w-3 h-3 text-slate-400" />
+                <span>Social Media Link / ID (Optional)</span>
+              </label>
+              <input
+                type="text"
+                value={formData.socialMedia || ''}
+                onChange={(e) => onChange('socialMedia', e.target.value)}
+                placeholder="e.g. @instagram, fb.com/profile"
                 className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 text-xs font-medium focus:bg-white focus:border-ocean-950 outline-none"
               />
             </div>

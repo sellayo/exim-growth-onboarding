@@ -25,6 +25,7 @@ export async function submitOnboardingPayload(payload) {
     email: payload.email || null,
     website: payload.website || null,
     linkedin: payload.linkedin || null,
+    social_media: payload.socialMedia || null,
     dynamic_answers: payload.dynamicAnswers || {},
     selected_networks: payload.selectedNetworks || [],
     status: 'pending',

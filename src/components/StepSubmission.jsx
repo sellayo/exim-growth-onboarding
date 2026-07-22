@@ -96,6 +96,13 @@ export default function StepSubmission({ formData, onSubmit, onBack }) {
               <span className="text-slate-800 font-semibold">{formData.phoneNumber} ({formData.country})</span>
             </div>
 
+            {formData.socialMedia && (
+              <div>
+                <span className="text-slate-400 block">Social Media Link / ID</span>
+                <span className="text-slate-800 font-semibold">{formData.socialMedia}</span>
+              </div>
+            )}
+
             <div>
               <span className="text-slate-400 block">Networks to Join ({selectedNetworkObjs.length})</span>
               <div className="flex flex-wrap gap-1 mt-1">

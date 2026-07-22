@@ -26,6 +26,7 @@ export default function App() {
     email: '',
     website: '',
     linkedin: '',
+    socialMedia: '',
     dynamicAnswers: {},
     selectedNetworks: ['marketplace', 'services'], // sensible defaults
   });
@@ -81,6 +82,7 @@ export default function App() {
       email: '',
       website: '',
       linkedin: '',
+      socialMedia: '',
       dynamicAnswers: {},
       selectedNetworks: ['marketplace', 'services'],
     });
