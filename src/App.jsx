@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import Navbar from './components/Navbar';
 import ProgressBar from './components/ProgressBar';
@@ -9,11 +9,17 @@ import StepDynamicQuestions from './components/StepDynamicQuestions';
 import StepNetworkSelection from './components/StepNetworkSelection';
 import StepSubmission from './components/StepSubmission';
 import StepSuccess from './components/StepSuccess';
+import AdminPortal from './components/admin/AdminPortal';
 import { submitOnboardingPayload } from './lib/supabase';
 
 const TOTAL_STEPS = 5;
 
 export default function App() {
+  const [isAdminRoute, setIsAdminRoute] = useState(
+    window.location.pathname.toLowerCase().startsWith('/admin') ||
+    window.location.hash.toLowerCase() === '#admin'
+  );
+
   const [currentStep, setCurrentStep] = useState(0);
 
   const [formData, setFormData] = useState({
@@ -28,8 +34,30 @@ export default function App() {
     linkedin: '',
     socialMedia: '',
     dynamicAnswers: {},
-    selectedNetworks: ['marketplace', 'services'], // sensible defaults
+    selectedNetworks: ['marketplace', 'services'],
   });
+
+  // Handle URL history / hash changes
+  useEffect(() => {
+    const handlePopState = () => {
+      setIsAdminRoute(
+        window.location.pathname.toLowerCase().startsWith('/admin') ||
+        window.location.hash.toLowerCase() === '#admin'
+      );
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const navigateToAdmin = () => {
+    window.history.pushState({}, '', '/admin');
+    setIsAdminRoute(true);
+  };
+
+  const navigateToHome = () => {
+    window.history.pushState({}, '', '/');
+    setIsAdminRoute(false);
+  };
 
   const handleUpdateField = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -67,7 +95,7 @@ export default function App() {
 
   const handleSubmitApplication = async () => {
     await submitOnboardingPayload(formData);
-    setCurrentStep(6); // Move to Success Screen
+    setCurrentStep(6);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -88,6 +116,15 @@ export default function App() {
     });
     setCurrentStep(0);
   };
+
+  // If user navigated to /admin route, render Admin Portal
+  if (isAdminRoute) {
+    return (
+      <div className="min-h-screen bg-slate-100 flex flex-col font-sans selection:bg-gold-500 selection:text-white py-4">
+        <AdminPortal onExitAdmin={navigateToHome} />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans selection:bg-gold-500 selection:text-white">
@@ -170,8 +207,16 @@ export default function App() {
       </main>
 
       {/* Footer */}
-      <footer className="py-4 px-6 text-center text-xs text-slate-400 border-t border-slate-200/60 bg-white/50">
-        <p>© {new Date().getFullYear()} EXIM Growth Network. All rights reserved. Trusted B2B Global Trade Ecosystem.</p>
+      <footer className="py-4 px-6 text-center text-xs text-slate-400 border-t border-slate-200/60 bg-white/50 flex flex-wrap items-center justify-between gap-2 max-w-5xl mx-auto w-full">
+        <p>© {new Date().getFullYear()} EXIM Growth Network. All rights reserved.</p>
+        
+        {/* Subtle Admin Shortcut Link */}
+        <button
+          onClick={navigateToAdmin}
+          className="text-[11px] text-slate-400 hover:text-ocean-950 hover:underline transition-colors cursor-pointer"
+        >
+          🔒 Admin Portal
+        </button>
       </footer>
     </div>
   );
