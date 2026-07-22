@@ -10,6 +10,7 @@ import StepNetworkSelection from './components/StepNetworkSelection';
 import StepSubmission from './components/StepSubmission';
 import StepSuccess from './components/StepSuccess';
 import AdminPortal from './components/admin/AdminPortal';
+import PostTemplatePortal from './components/postTemplate/PostTemplatePortal';
 import { submitOnboardingPayload } from './lib/supabase';
 
 const TOTAL_STEPS = 5;
@@ -18,6 +19,11 @@ export default function App() {
   const [isAdminRoute, setIsAdminRoute] = useState(
     window.location.pathname.toLowerCase().startsWith('/admin') ||
     window.location.hash.toLowerCase() === '#admin'
+  );
+
+  const [isPostTemplateRoute, setIsPostTemplateRoute] = useState(
+    window.location.pathname.toLowerCase().startsWith('/post-template') ||
+    window.location.hash.toLowerCase() === '#post-template'
   );
 
   const [currentStep, setCurrentStep] = useState(0);
@@ -44,6 +50,10 @@ export default function App() {
         window.location.pathname.toLowerCase().startsWith('/admin') ||
         window.location.hash.toLowerCase() === '#admin'
       );
+      setIsPostTemplateRoute(
+        window.location.pathname.toLowerCase().startsWith('/post-template') ||
+        window.location.hash.toLowerCase() === '#post-template'
+      );
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
@@ -52,11 +62,19 @@ export default function App() {
   const navigateToAdmin = () => {
     window.history.pushState({}, '', '/admin');
     setIsAdminRoute(true);
+    setIsPostTemplateRoute(false);
+  };
+
+  const navigateToPostTemplate = () => {
+    window.history.pushState({}, '', '/post-template');
+    setIsPostTemplateRoute(true);
+    setIsAdminRoute(false);
   };
 
   const navigateToHome = () => {
     window.history.pushState({}, '', '/');
     setIsAdminRoute(false);
+    setIsPostTemplateRoute(false);
   };
 
   const handleUpdateField = (field, value) => {
@@ -122,6 +140,15 @@ export default function App() {
     return (
       <div className="min-h-screen bg-slate-100 flex flex-col font-sans selection:bg-gold-500 selection:text-white py-4">
         <AdminPortal onExitAdmin={navigateToHome} />
+      </div>
+    );
+  }
+
+  // If user navigated to /post-template route, render WhatsApp Post Template Generator
+  if (isPostTemplateRoute) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col font-sans selection:bg-gold-500 selection:text-white py-4">
+        <PostTemplatePortal onExit={navigateToHome} />
       </div>
     );
   }
@@ -210,13 +237,21 @@ export default function App() {
       <footer className="py-4 px-6 text-center text-xs text-slate-400 border-t border-slate-200/60 bg-white/50 flex flex-wrap items-center justify-between gap-2 max-w-5xl mx-auto w-full">
         <p>© {new Date().getFullYear()} EXIM Growth Network. All rights reserved.</p>
         
-        {/* Subtle Admin Shortcut Link */}
-        <button
-          onClick={navigateToAdmin}
-          className="text-[11px] text-slate-400 hover:text-ocean-950 hover:underline transition-colors cursor-pointer"
-        >
-          🔒 Admin Portal
-        </button>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={navigateToPostTemplate}
+            className="text-[11px] font-bold text-ocean-950 hover:underline flex items-center gap-1 cursor-pointer"
+          >
+            <span>📢 Post Generator</span>
+          </button>
+
+          <button
+            onClick={navigateToAdmin}
+            className="text-[11px] text-slate-400 hover:text-ocean-950 hover:underline transition-colors cursor-pointer"
+          >
+            🔒 Admin Portal
+          </button>
+        </div>
       </footer>
     </div>
   );
