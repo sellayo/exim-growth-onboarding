@@ -171,6 +171,18 @@ export default function PostCardCanvas({ templateType, data, imageUrl }) {
       yOffset = Math.max(yOffset + 55, nextY + 16);
     });
 
+    // Contact details if provided
+    if (data.contactPhone || data.contactEmail || data.contactWebsite) {
+      const contactParts = [];
+      if (data.contactPhone) contactParts.push(`📞 ${data.contactPhone}`);
+      if (data.contactEmail) contactParts.push(`✉️ ${data.contactEmail}`);
+      if (data.contactWebsite) contactParts.push(`🌐 ${data.contactWebsite}`);
+
+      ctx.fillStyle = '#0B3FAD';
+      ctx.font = '700 12px "Plus Jakarta Sans", sans-serif';
+      ctx.fillText(truncateText(ctx, contactParts.join('  •  '), boxW - 50), boxX + 25, boxY + boxH - 20);
+    }
+
     // 5. Bottom CTA Footer Bar (Y: 740 to 780)
     ctx.fillStyle = '#041544';
     roundRect(ctx, 35, H - 55, W - 70, 40, 14);

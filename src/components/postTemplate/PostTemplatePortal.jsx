@@ -15,7 +15,10 @@ import {
   MessageSquare, 
   Sparkles,
   ArrowLeft,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Phone,
+  Mail,
+  Globe
 } from 'lucide-react';
 
 export default function PostTemplatePortal({ onExit }) {
@@ -37,10 +40,15 @@ export default function PostTemplatePortal({ onExit }) {
 
     problem: 'DGFT Export License & COO Process',
     context: 'We are starting exports of organic spices to Europe and need guidance on Certificate of Origin.',
-    question: 'What is the fastest way to issue e-COO via DGFT portal for EU shipments?'
+    question: 'What is the fastest way to issue e-COO via DGFT portal for EU shipments?',
+
+    // Optional Contact Details
+    contactPhone: '',
+    contactEmail: '',
+    contactWebsite: ''
   });
 
-  // Local text input state for typing (default: sugar)
+  // Local text input state for typing (default: Sugar)
   const [searchInputText, setSearchInputText] = useState('Sugar');
   
   // Selected Image URL (Default: Sugar photo)
@@ -74,43 +82,50 @@ export default function PostTemplatePortal({ onExit }) {
   };
 
   const generateWhatsAppText = () => {
+    let mainBody = '';
     if (templateType === 'buyer') {
-      return `📢 *EXIM GROWTH NETWORK - BUYER REQUIREMENT*
+      mainBody = `📢 *EXIM GROWTH NETWORK - BUYER REQUIREMENT*
 ─────────────────────────────
 📦 *Product:* ${formData.product || 'N/A'}
 ⚖️ *Quantity:* ${formData.quantity || 'N/A'}
 📍 *Destination:* ${formData.destination || 'N/A'}
 ⏱️ *Timeline:* ${formData.timeline || 'Immediate'}
-📝 *Requirements:* ${formData.requirements || 'Standard Quality'}
-─────────────────────────────
-💬 *DM for more details or reply in EXIM Growth Network*`;
+📝 *Requirements:* ${formData.requirements || 'Standard Quality'}`;
     } else if (templateType === 'supplier') {
-      return `📢 *EXIM GROWTH NETWORK - SUPPLIER REQUEST / OFFER*
+      mainBody = `📢 *EXIM GROWTH NETWORK - SUPPLIER REQUEST / OFFER*
 ─────────────────────────────
 📦 *Product:* ${formData.product || 'N/A'}
 🔢 *MOQ:* ${formData.moq || 'N/A'}
 🏭 *Location:* ${formData.location || 'N/A'}
-🏆 *Certifications:* ${formData.certifications || 'ISO Certified'}
-─────────────────────────────
-💬 *DM for more details or reply in EXIM Growth Network*`;
+🏆 *Certifications:* ${formData.certifications || 'ISO Certified'}`;
     } else if (templateType === 'logistics') {
-      return `📢 *EXIM GROWTH NETWORK - LOGISTICS HELP*
+      mainBody = `📢 *EXIM GROWTH NETWORK - LOGISTICS HELP*
 ─────────────────────────────
 🛫 *Origin:* ${formData.origin || 'N/A'}
 𛬬 *Destination:* ${formData.destination || 'N/A'}
 🚢 *Container/Cargo:* ${formData.container || 'FCL/LCL'}
-⏱️ *Timeline:* ${formData.timeline || 'Immediate'}
-─────────────────────────────
-💬 *DM for more details or reply in EXIM Growth Network*`;
+⏱️ *Timeline:* ${formData.timeline || 'Immediate'}`;
     } else {
-      return `📢 *EXIM GROWTH NETWORK - COMMUNITY QUESTION*
+      mainBody = `📢 *EXIM GROWTH NETWORK - COMMUNITY QUESTION*
 ─────────────────────────────
 ❓ *Topic:* ${formData.problem || 'N/A'}
 📌 *Context:* ${formData.context || 'N/A'}
-💡 *Question:* ${formData.question || 'N/A'}
+💡 *Question:* ${formData.question || 'N/A'}`;
+    }
+
+    let contactBlock = '';
+    const contacts = [];
+    if (formData.contactPhone?.trim()) contacts.push(`📞 ${formData.contactPhone.trim()}`);
+    if (formData.contactEmail?.trim()) contacts.push(`✉️ ${formData.contactEmail.trim()}`);
+    if (formData.contactWebsite?.trim()) contacts.push(`🌐 ${formData.contactWebsite.trim()}`);
+
+    if (contacts.length > 0) {
+      contactBlock = `\n👤 *Contact:* ${contacts.join(' | ')}`;
+    }
+
+    return `${mainBody}${contactBlock}
 ─────────────────────────────
 💬 *DM for more details or reply in EXIM Growth Network*`;
-    }
   };
 
   const handleCopyText = () => {
@@ -443,6 +458,54 @@ export default function PostTemplatePortal({ onExit }) {
                   </div>
                 </>
               )}
+
+              {/* Optional Contact Details Section */}
+              <div className="pt-3 border-t border-slate-200/80">
+                <span className="block font-bold text-slate-500 uppercase tracking-wider text-[11px] mb-2">
+                  Optional Contact Info (Appears in Card Banner & Text)
+                </span>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1 flex items-center gap-1">
+                      <Phone className="w-3 h-3 text-emerald-600" /> Phone / WhatsApp
+                    </label>
+                    <input
+                      type="tel"
+                      value={formData.contactPhone}
+                      onChange={(e) => handleFieldChange('contactPhone', e.target.value)}
+                      placeholder="+91 98765 43210"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-ocean-950 outline-none text-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1 flex items-center gap-1">
+                      <Mail className="w-3 h-3 text-blue-600" /> Email
+                    </label>
+                    <input
+                      type="email"
+                      value={formData.contactEmail}
+                      onChange={(e) => handleFieldChange('contactEmail', e.target.value)}
+                      placeholder="trade@company.com"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-ocean-950 outline-none text-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1 flex items-center gap-1">
+                      <Globe className="w-3 h-3 text-purple-600" /> Website
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.contactWebsite}
+                      onChange={(e) => handleFieldChange('contactWebsite', e.target.value)}
+                      placeholder="www.company.com"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-ocean-950 outline-none text-xs"
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -453,7 +516,7 @@ export default function PostTemplatePortal({ onExit }) {
               <span>Product Image (Stock Search & Device Upload)</span>
             </h4>
 
-            {/* Search Input & Action Buttons (Triggers search ONLY on Enter or Search Click) */}
+            {/* Search Input & Action Buttons */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 mb-3">
               <div className="relative flex-1">
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />

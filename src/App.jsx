@@ -244,13 +244,6 @@ export default function App() {
           >
             <span>📢 Post Generator</span>
           </button>
-
-          <button
-            onClick={navigateToAdmin}
-            className="text-[11px] text-slate-400 hover:text-ocean-950 hover:underline transition-colors cursor-pointer"
-          >
-            🔒 Admin Portal
-          </button>
         </div>
       </footer>
     </div>
