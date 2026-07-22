@@ -1,25 +1,25 @@
-// Verified Curated EXIM Trade Images Catalog (8 Core Commodities)
+// 100% Verified Standard EXIM Commodity Stock Image Catalog
 
 export const EXIM_COMMODITY_CATALOG = [
   {
     title: 'Sugar',
     keywords: ['sugar', 'cane', 'white sugar', 'raw sugar'],
-    url: 'https://images.unsplash.com/photo-1581441363689-1f3c3c414635?auto=format&fit=crop&w=800&q=80'
+    url: 'https://images.unsplash.com/photo-1622484210800-8851843d4586?auto=format&fit=crop&w=800&q=80'
   },
   {
     title: 'Mangoes',
     keywords: ['mango', 'mangoes', 'alphonso', 'fruit'],
-    url: 'https://images.unsplash.com/photo-1553279768-865429fa0078?auto=format&fit=crop&w=800&q=80'
+    url: 'https://images.unsplash.com/photo-1601493700631-2b16ec4b4716?auto=format&fit=crop&w=800&q=80'
   },
   {
     title: 'Black Pepper',
     keywords: ['black pepper', 'pepper', 'peppercorn'],
-    url: 'https://images.unsplash.com/photo-1599940824399-b87987ceb72a?auto=format&fit=crop&w=800&q=80'
+    url: 'https://images.unsplash.com/photo-1509358271058-acd02cc93898?auto=format&fit=crop&w=800&q=80'
   },
   {
     title: 'Basmati Rice',
     keywords: ['rice', 'basmati', 'grain'],
-    url: 'https://images.unsplash.com/photo-1586201375761-83865001e8ac?auto=format&fit=crop&w=800&q=80'
+    url: 'https://images.unsplash.com/photo-1536304993881-ff6e9eefa2a6?auto=format&fit=crop&w=800&q=80'
   },
   {
     title: 'Assorted Spices',
@@ -53,7 +53,7 @@ export function getStockImageUrl(query) {
 
   const clean = query.trim().toLowerCase();
 
-  // Search in our verified 8 core commodities
+  // Search in our verified core commodities
   const match = EXIM_COMMODITY_CATALOG.find(item => 
     item.title.toLowerCase().includes(clean) ||
     item.keywords.some(k => clean.includes(k) || k.includes(clean))
@@ -63,6 +63,6 @@ export function getStockImageUrl(query) {
     return match.url;
   }
 
-  // Guaranteed fallback to verified containers photo
+  // Fallback to verified containers photo
   return EXIM_COMMODITY_CATALOG[5].url;
 }

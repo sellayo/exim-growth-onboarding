@@ -81,11 +81,11 @@ export default function PostCardCanvas({ templateType, data, imageUrl }) {
     ctx.fillText(badgeText, W - 157, 61);
     ctx.textAlign = 'left';
 
-    // 3. Image Display Box (Y: 105 to 365, Height 260)
+    // 3. Image Display Box (Y: 105 to 360, Height 255)
     const imgX = 35;
     const imgY = 105;
     const imgW = W - 70;
-    const imgH = 260;
+    const imgH = 255;
 
     ctx.save();
     roundRect(ctx, imgX, imgY, imgW, imgH, 20);
@@ -115,11 +115,11 @@ export default function PostCardCanvas({ templateType, data, imageUrl }) {
   };
 
   const renderTextOverlay = (ctx, W, H) => {
-    // 4. Specs Container Card Box (Y: 380 to 725, Height 345)
+    // 4. Specs Container Card Box (Y: 375 to 725, Height 350)
     const boxX = 35;
-    const boxY = 380;
+    const boxY = 375;
     const boxW = W - 70;
-    const boxH = 345;
+    const boxH = 350;
 
     ctx.fillStyle = 'rgba(255, 255, 255, 0.97)';
     roundRect(ctx, boxX, boxY, boxW, boxH, 20);
@@ -156,32 +156,36 @@ export default function PostCardCanvas({ templateType, data, imageUrl }) {
       ];
     }
 
-    let yOffset = boxY + 30;
+    // Append contact details as a dedicated field if present
+    if (data.contactPhone || data.contactEmail || data.contactWebsite) {
+      const contactParts = [];
+      if (data.contactPhone) contactParts.push(`Ph: ${data.contactPhone}`);
+      if (data.contactEmail) contactParts.push(`Mail: ${data.contactEmail}`);
+      if (data.contactWebsite) contactParts.push(`Web: ${data.contactWebsite}`);
+
+      fields.push({
+        label: 'DIRECT CONTACT DETAILS',
+        value: contactParts.join('   •   '),
+        icon: '📞'
+      });
+    }
+
+    const fieldSpacing = fields.length > 4 ? 45 : 55;
+    let yOffset = boxY + 25;
+
     fields.forEach((field) => {
       // Label
       ctx.fillStyle = '#64748B';
       ctx.font = '800 11px "Plus Jakarta Sans", sans-serif';
-      ctx.fillText(`${field.icon}  ${field.label}`, boxX + 25, yOffset);
+      ctx.fillText(`${field.icon}  ${field.label}`, boxX + 22, yOffset);
 
       // Value (wrapped multi-line if long)
-      ctx.fillStyle = '#0F172A';
-      ctx.font = '700 14px "Plus Jakarta Sans", sans-serif';
+      ctx.fillStyle = field.label === 'DIRECT CONTACT DETAILS' ? '#0B3FAD' : '#0F172A';
+      ctx.font = field.label === 'DIRECT CONTACT DETAILS' ? '800 13px "Plus Jakarta Sans", sans-serif' : '700 14px "Plus Jakarta Sans", sans-serif';
       
-      const nextY = wrapText(ctx, field.value, boxX + 25, yOffset + 18, boxW - 50, 18, 2);
-      yOffset = Math.max(yOffset + 55, nextY + 16);
+      const nextY = wrapText(ctx, field.value, boxX + 22, yOffset + 17, boxW - 44, 17, 2);
+      yOffset = Math.max(yOffset + fieldSpacing, nextY + 15);
     });
-
-    // Contact details if provided
-    if (data.contactPhone || data.contactEmail || data.contactWebsite) {
-      const contactParts = [];
-      if (data.contactPhone) contactParts.push(`📞 ${data.contactPhone}`);
-      if (data.contactEmail) contactParts.push(`✉️ ${data.contactEmail}`);
-      if (data.contactWebsite) contactParts.push(`🌐 ${data.contactWebsite}`);
-
-      ctx.fillStyle = '#0B3FAD';
-      ctx.font = '700 12px "Plus Jakarta Sans", sans-serif';
-      ctx.fillText(truncateText(ctx, contactParts.join('  •  '), boxW - 50), boxX + 25, boxY + boxH - 20);
-    }
 
     // 5. Bottom CTA Footer Bar (Y: 740 to 780)
     ctx.fillStyle = '#041544';
