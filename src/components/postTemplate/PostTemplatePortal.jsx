@@ -60,21 +60,9 @@ const KERALA_EXPORT_HSN_CODES = [
 
 const COMMON_CERTIFICATIONS = [
   'FSSAI (Food Safety India)',
-  'ISO 9001:2015 (Quality Management)',
-  'ISO 22000 / HACCP (Food Safety)',
-  'APEDA Registration',
-  'Spices Board Certificate (CRES)',
-  'CDB Coconut Development Board',
-  'Coir Board Registration',
-  'US FDA Registration',
-  'EU Organic Certification',
-  'Halal Certification',
-  'Kosher Certified',
-  'GMP Certified (Good Manufacturing)',
-  'SGS Inspection Certificate',
-  'Phytosanitary Certificate',
-  'Certificate of Origin (e-COO)',
-  'CE Marking (European Conformity)'
+  'ISO 9001:2015 (Quality)',
+  'ISO 22000 / HACCP',
+  'Spices Board Certificate (CRES)'
 ];
 
 const PORT_PRESETS = [
@@ -517,44 +505,39 @@ ${formData.product ? `📦 *Product / Cargo:* ${formData.product}\n` : ''}🛫 *
         )}
       </div>
 
-      {/* WHY CREATE AN ACCOUNT / MEMBER ADVANTAGE BANNER (CLEAN & SHORT BULLET LIST) */}
+      {/* WHY CREATE AN ACCOUNT BANNER (COMPACT BULLET LIST) */}
       {!loggedInMember && (
-        <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-r from-ocean-950 via-slate-900 to-ocean-950 text-white shadow-xl border border-gold-500/30 space-y-3.5">
-          <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider bg-gold-400 text-ocean-950 rounded-full">
-              ✨ Member Advantage
-            </span>
-            <h3 className="font-extrabold text-sm sm:text-base text-gold-400">
-              Why Create a Free Account on EXIM Growth Network?
-            </h3>
-          </div>
+        <div className="p-4 sm:p-4.5 rounded-2xl bg-gradient-to-r from-ocean-950 via-slate-900 to-ocean-950 text-white shadow-md border border-gold-500/30 space-y-2.5">
+          <h3 className="font-extrabold text-xs sm:text-sm text-gold-400">
+            Why Create a Free Account on EXIM Growth Network?
+          </h3>
 
-          <ul className="space-y-2 text-xs text-slate-200 font-medium">
+          <ul className="space-y-1.5 text-xs text-slate-200 font-medium">
             <li className="flex items-start gap-2">
-              <span className="text-emerald-400 font-extrabold shrink-0 text-sm">✓</span>
+              <span className="text-emerald-400 font-extrabold shrink-0 text-xs mt-0.5">✓</span>
               <span>
                 <strong className="text-white font-bold">Live Order Tracking Links:</strong> Attach verification URLs to your WhatsApp posts.
               </span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="text-emerald-400 font-extrabold shrink-0 text-sm">✓</span>
+              <span className="text-emerald-400 font-extrabold shrink-0 text-xs mt-0.5">✓</span>
               <span>
-                <strong className="text-white font-bold">Status Control:</strong> Toggle lead status (<code className="bg-ocean-900 px-1.5 py-0.5 rounded text-emerald-300 font-mono text-[10px]">OPEN</code> vs <code className="bg-ocean-900 px-1.5 py-0.5 rounded text-red-300 font-mono text-[10px]">FULFILLED</code>) to stop unwanted calls.
+                <strong className="text-white font-bold">Status Control:</strong> Toggle lead status (<code className="bg-ocean-900 px-1 py-0.5 rounded text-emerald-300 font-mono text-[10px]">OPEN</code> vs <code className="bg-ocean-900 px-1 py-0.5 rounded text-red-300 font-mono text-[10px]">FULFILLED</code>) to stop unwanted calls.
               </span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="text-emerald-400 font-extrabold shrink-0 text-sm">✓</span>
+              <span className="text-emerald-400 font-extrabold shrink-0 text-xs mt-0.5">✓</span>
               <span>
                 <strong className="text-white font-bold">15-Second Post Editing:</strong> Re-use previous templates with prefilled commodity specs.
               </span>
             </li>
           </ul>
 
-          <div className="pt-1">
+          <div className="pt-0.5">
             <button
               type="button"
               onClick={() => setShowEmailModal(true)}
-              className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-gold-400 hover:bg-gold-500 text-ocean-950 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-gold-500/20 transition-all cursor-pointer hover:scale-[1.01]"
+              className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gold-400 hover:bg-gold-500 text-ocean-950 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer hover:scale-[1.01]"
             >
               <Mail className="w-4 h-4 text-ocean-950" />
               <span>Sign In / Register with Email</span>

@@ -17,11 +17,9 @@ export default function Navbar({ currentStep, totalSteps, isLanding, onReset }) 
           />
           <div>
             <div className="flex items-center gap-1.5">
-              <span className="font-extrabold text-lg text-ocean-950 tracking-tight leading-none font-sans">
-                EXIM <span className="text-gold-600">GROWTH</span>
-              </span>
-              <span className="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-gold-50 text-gold-700 border border-gold-300/60 rounded-full">
-                Network
+              <span className="font-black text-lg tracking-tight leading-none font-sans">
+                <span className="text-[#0B3FAD]">EXIM Growth</span>{' '}
+                <span className="text-[#F57E13]">Network</span>
               </span>
             </div>
             <p className="text-[11px] text-slate-500 font-medium tracking-wide">

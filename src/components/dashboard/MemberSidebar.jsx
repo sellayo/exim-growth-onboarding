@@ -86,11 +86,16 @@ export default function MemberSidebar({ children, activeTab, onNavigate }) {
       {/* MOBILE TOP HEADER BAR */}
       <div className="md:hidden bg-ocean-950 text-white px-4 py-3.5 flex items-center justify-between shadow-md sticky top-0 z-40">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-gold-400 text-ocean-950 flex items-center justify-center font-black text-sm shadow">
-            E
-          </div>
+          <img
+            src="/logo.png"
+            alt="EXIM Growth Network"
+            className="w-8 h-8 rounded-xl object-cover border border-gold-500/30 shrink-0 shadow"
+          />
           <div>
-            <h1 className="font-extrabold text-sm text-gold-400 leading-none">EXIM Growth Network</h1>
+            <h1 className="font-extrabold text-sm leading-none">
+              <span className="text-[#38BDF8] font-black">EXIM Growth</span>{' '}
+              <span className="text-[#F57E13] font-black">Network</span>
+            </h1>
             <span className="text-[10px] text-slate-300 font-medium">Platform Portal</span>
           </div>
         </div>
@@ -190,14 +195,17 @@ export default function MemberSidebar({ children, activeTab, onNavigate }) {
         {/* Sidebar Brand & Collapse Toggle Header */}
         <div className="p-4 sm:p-5 border-b border-ocean-800 flex items-center justify-between relative">
           <div className={`flex items-center gap-3 overflow-hidden transition-all ${isCollapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'}`}>
-            <div className="w-9 h-9 rounded-2xl bg-gold-400 text-ocean-950 flex items-center justify-center font-black text-lg shadow-md shrink-0">
-              E
-            </div>
+            <img
+              src="/logo.png"
+              alt="EXIM Growth Network"
+              className="w-9 h-9 rounded-2xl object-cover border border-gold-500/30 shrink-0 shadow-md"
+            />
             <div className="truncate">
-              <h2 className="font-extrabold text-sm text-gold-400 tracking-tight leading-none truncate">
-                EXIM Growth
+              <h2 className="font-extrabold text-sm tracking-tight leading-none truncate">
+                <span className="text-[#38BDF8] font-black">EXIM Growth</span>{' '}
+                <span className="text-[#F57E13] font-black">Network</span>
               </h2>
-              <span className="text-[10px] text-slate-300 font-semibold block truncate">Member Portal</span>
+              <span className="text-[10px] text-slate-300 font-semibold block truncate mt-0.5">Member Control Panel</span>
             </div>
           </div>
 
