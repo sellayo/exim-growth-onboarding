@@ -225,18 +225,24 @@ export default function PostDetailView({ postId, onBackToGenerator }) {
             : 'bg-emerald-950 text-emerald-100 border-b border-emerald-900'
         }`}>
           <div className="flex items-start sm:items-center gap-3">
-            <span className={`w-3.5 h-3.5 rounded-full mt-1 sm:mt-0 shrink-0 ${isFulfilled ? 'bg-red-500' : 'bg-emerald-400 animate-ping'}`} />
+            <span className="relative flex h-3.5 w-3.5 shrink-0 mt-0.5 sm:mt-0">
+              {isFulfilled ? (
+                <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-red-500"></span>
+              ) : (
+                <>
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-400"></span>
+                </>
+              )}
+            </span>
             <div>
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-2">
                 <span className="font-extrabold text-xs sm:text-sm uppercase tracking-wider">
                   {isFulfilled ? '🔴 ORDER FULFILLED / CLOSED' : '🟢 LIVE & ACCEPTING QUOTES'}
                 </span>
-                <span className="px-2 py-0.5 text-[10px] font-bold bg-white/10 rounded-full shrink-0">
-                  Verified Lead
-                </span>
               </div>
               <p className="text-[11px] opacity-80 mt-0.5 leading-tight">
-                {isFulfilled ? 'This trade requirement has been fulfilled by the poster.' : 'Active trade requirement on EXIM Growth Network.'}
+                {isFulfilled ? 'This trade requirement has been fulfilled' : 'Active trade requirement on EXIM Growth Network.'}
               </p>
             </div>
           </div>

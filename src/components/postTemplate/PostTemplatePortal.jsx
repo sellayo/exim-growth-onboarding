@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import PostCardCanvas from './PostCardCanvas';
 import { EXIM_COMMODITY_CATALOG, getStockImageUrl } from '../../lib/stockImages';
 import { saveTradePost, signInWithEmail, signUpWithSupabase, signInWithSupabase } from '../../lib/supabase';
