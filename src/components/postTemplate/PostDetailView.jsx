@@ -260,7 +260,7 @@ export default function PostDetailView({ postId, onBackToGenerator }) {
           ) : (
             <span className="w-full sm:w-auto text-[11px] font-bold bg-white/10 text-slate-200 px-3 py-1.5 rounded-xl border border-white/15 flex items-center justify-center gap-1.5 shrink-0">
               <ShieldCheck className="w-3.5 h-3.5 text-gold-400 shrink-0" />
-              <span>EXIM Growth Network Trader</span>
+              <span>EXIM Network Member</span>
             </span>
           )}
         </div>
@@ -348,7 +348,7 @@ export default function PostDetailView({ postId, onBackToGenerator }) {
                 </span>
               ) : (
                 <span className="px-2.5 py-0.5 text-[10px] font-bold bg-white/10 text-slate-300 border border-white/20 rounded-full flex items-center gap-1 self-start sm:self-auto">
-                  <ShieldCheck className="w-3 h-3 text-gold-400" /> EXIM Verified Trader
+                  <ShieldCheck className="w-3 h-3 text-gold-400" /> EXIM Network Member
                 </span>
               )}
             </div>

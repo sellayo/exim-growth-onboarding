@@ -367,6 +367,17 @@ export async function saveTradePost(templateType, postData, existingPostId = nul
   // Ensure user_id sent to Supabase is a valid PostgreSQL UUID
   const dbUserId = isValidUUID(rawUserId) ? rawUserId : null;
 
+  // Sanitize legacy dummy fallback data
+  const isDummyCompany = (name) => !name || name === 'EXIM Global Trade Pvt Ltd';
+  const isDummyName = (name) => !name || name === 'Rahul Sharma';
+  const isDummyPhone = (phone) => !phone || phone.includes('9876543210');
+  const isDummyEmail = (email) => !email || email === 'trade@eximglobal.com' || email === 'exporter@eximgrowth.com';
+
+  const realCompanyName = currentMember?.companyName || (!isDummyCompany(textDetails.companyName) ? textDetails.companyName : null);
+  const realContactName = currentMember?.name || (!isDummyName(textDetails.contactName) ? textDetails.contactName : null);
+  const realContactPhone = currentMember?.phone || (!isDummyPhone(textDetails.contactPhone) ? textDetails.contactPhone : null);
+  const realContactEmail = currentMember?.email || (!isDummyEmail(textDetails.contactEmail) ? textDetails.contactEmail : null);
+
   const formattedRecord = {
     template_type: templateType,
     user_id: dbUserId,
@@ -377,12 +388,18 @@ export async function saveTradePost(templateType, postData, existingPostId = nul
     destination: textDetails.destination || null,
     timeline: textDetails.timeline || null,
     requirements_or_certifications: textDetails.requirements || textDetails.certifications || textDetails.serviceDetails || textDetails.context || null,
-    company_name: textDetails.companyName || currentMember?.companyName || null,
-    contact_name: textDetails.contactName || currentMember?.name || null,
-    contact_phone: textDetails.contactPhone || currentMember?.phone || null,
-    contact_email: textDetails.contactEmail || currentMember?.email || null,
-    contact_website: textDetails.contactWebsite || null,
-    raw_details: textDetails,
+    company_name: realCompanyName,
+    contact_name: realContactName,
+    contact_phone: realContactPhone,
+    contact_email: realContactEmail,
+    contact_website: textDetails.contactWebsite && !textDetails.contactWebsite.includes('eximglobal.com') ? textDetails.contactWebsite : null,
+    raw_details: {
+      ...textDetails,
+      companyName: realCompanyName || textDetails.companyName,
+      contactName: realContactName || textDetails.contactName,
+      contactPhone: realContactPhone || textDetails.contactPhone,
+      contactEmail: realContactEmail || textDetails.contactEmail
+    },
     updated_at: new Date().toISOString()
   };
 
@@ -540,6 +557,13 @@ export async function checkPosterCommunityVerification(email, phone) {
 
   const cleanEmail = email ? email.trim().toLowerCase() : '';
   const cleanPhone = phone ? phone.replace(/[^0-9]/g, '').slice(-10) : '';
+
+  const dummyEmails = ['trade@eximglobal.com', 'exporter@eximgrowth.com', 'test@test.com'];
+  const dummyPhones = ['9876543210', '0000000000'];
+
+  if ((cleanEmail && dummyEmails.includes(cleanEmail)) || (cleanPhone && dummyPhones.includes(cleanPhone))) {
+    return 'unverified';
+  }
 
   if (supabase) {
     try {

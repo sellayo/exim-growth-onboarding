@@ -168,13 +168,26 @@ export default function PostTemplatePortal({ onExit, initialData = null }) {
     context: initialData?.context || 'We are starting exports of organic spices from Kerala to Europe and need guidance on Certificate of Origin.',
     question: initialData?.question || 'What is the fastest way to issue e-COO via DGFT portal for EU shipments?',
 
-    // Contact Details
-    companyName: initialData?.companyName || initialMember?.companyName || 'EXIM Global Trade Pvt Ltd',
-    contactName: initialData?.contactName || initialMember?.name || 'Rahul Sharma',
-    contactPhone: initialData?.contactPhone || initialMember?.phone || '+91 98765 43210',
-    contactEmail: initialData?.contactEmail || initialMember?.email || 'trade@eximglobal.com',
-    contactWebsite: initialData?.contactWebsite || 'www.eximglobal.com'
+    // Contact Details (Auto-filled with real member session if available)
+    companyName: initialData?.companyName || initialMember?.companyName || '',
+    contactName: initialData?.contactName || initialMember?.name || '',
+    contactPhone: initialData?.contactPhone || initialMember?.phone || '',
+    contactEmail: initialData?.contactEmail || initialMember?.email || '',
+    contactWebsite: initialData?.contactWebsite || ''
   }));
+
+  // Dynamically auto-fill contact info whenever logged-in member session changes
+  useEffect(() => {
+    if (loggedInMember) {
+      setFormData(prev => ({
+        ...prev,
+        companyName: prev.companyName || loggedInMember.companyName || '',
+        contactName: prev.contactName || loggedInMember.name || '',
+        contactPhone: prev.contactPhone || loggedInMember.phone || '',
+        contactEmail: prev.contactEmail || loggedInMember.email || ''
+      }));
+    }
+  }, [loggedInMember]);
 
   const [searchInputText, setSearchInputText] = useState('Pepper');
   const [selectedImageUrl, setSelectedImageUrl] = useState(EXIM_COMMODITY_CATALOG[2].url);
