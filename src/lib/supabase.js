@@ -123,3 +123,120 @@ export async function deleteSubmission(id) {
     return true;
   }
 }
+
+/**
+ * Save trade post details ONLY (excluding banner images) when shared to category-specific tables & master log.
+ * Category Tables: 'posts_buy', 'posts_sell', 'posts_logistics', 'posts_exim_services', 'posts_questions'
+ * Master Table: 'trade_posts_all'
+ */
+export async function saveTradePost(templateType, postData) {
+  const tableMap = {
+    buyer: 'posts_buy',
+    supplier: 'posts_sell',
+    logistics: 'posts_logistics',
+    exim_service: 'posts_exim_services',
+    question: 'posts_questions'
+  };
+
+  const tableName = tableMap[templateType] || 'posts_buy';
+
+  // Exclude heavy banner image file data / URLs - save text details ONLY
+  const { imageUrl, ...textDetails } = postData;
+
+  const formattedRecord = {
+    template_type: templateType,
+    product_or_service: textDetails.product || textDetails.serviceType || textDetails.problem || null,
+    hsn_code: textDetails.hsnCode || null,
+    quantity_or_moq: textDetails.quantity || textDetails.moq || textDetails.container || null,
+    origin_or_location: textDetails.origin || textDetails.location || textDetails.locationPort || null,
+    destination: textDetails.destination || null,
+    timeline: textDetails.timeline || null,
+    requirements_or_certifications: textDetails.requirements || textDetails.certifications || textDetails.serviceDetails || textDetails.context || null,
+    company_name: textDetails.companyName || null,
+    contact_name: textDetails.contactName || null,
+    contact_phone: textDetails.contactPhone || null,
+    contact_email: textDetails.contactEmail || null,
+    contact_website: textDetails.contactWebsite || null,
+    raw_details: textDetails,
+    created_at: new Date().toISOString()
+  };
+
+  console.log(`[DB Persistence] Saving text details (no banner image) to table '${tableName}' & master table:`, formattedRecord);
+
+  if (supabase) {
+    try {
+      // 1. Insert into category-specific table (e.g. posts_buy, posts_sell)
+      const { data: categoryData, error: categoryErr } = await supabase
+        .from(tableName)
+        .insert([formattedRecord])
+        .select();
+
+      // 2. Also insert into master table 'trade_posts_all' for unified queries later
+      try {
+        await supabase.from('trade_posts_all').insert([formattedRecord]);
+      } catch (masterErr) {
+        console.warn(`Master table write notice (non-fatal):`, masterErr);
+      }
+
+      if (categoryErr) {
+        console.warn(`Supabase category table '${tableName}' write error (falling back to LocalStorage):`, categoryErr);
+        return saveToLocalStorageFallback(tableName, formattedRecord);
+      }
+      return categoryData;
+    } catch (err) {
+      console.warn(`Supabase write failed, falling back to LocalStorage:`, err);
+      return saveToLocalStorageFallback(tableName, formattedRecord);
+    }
+  } else {
+    return saveToLocalStorageFallback(tableName, formattedRecord);
+  }
+}
+
+function saveToLocalStorageFallback(tableName, record) {
+  const catKey = `exim_${tableName}`;
+  const masterKey = 'exim_trade_posts_all';
+  const newRecord = { id: `post-${Date.now()}`, ...record };
+
+  // Save to Category table store
+  const existingCat = JSON.parse(localStorage.getItem(catKey) || '[]');
+  localStorage.setItem(catKey, JSON.stringify([newRecord, ...existingCat]));
+
+  // Save to Master table store
+  const existingMaster = JSON.parse(localStorage.getItem(masterKey) || '[]');
+  localStorage.setItem(masterKey, JSON.stringify([newRecord, ...existingMaster]));
+
+  return [newRecord];
+}
+
+/**
+ * Fetch saved trade post details (from Supabase or LocalStorage) for later use.
+ */
+export async function fetchAllTradePosts(templateType = null) {
+  const tableMap = {
+    buyer: 'posts_buy',
+    supplier: 'posts_sell',
+    logistics: 'posts_logistics',
+    exim_service: 'posts_exim_services',
+    question: 'posts_questions'
+  };
+
+  const targetTable = templateType ? (tableMap[templateType] || 'posts_buy') : 'trade_posts_all';
+
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from(targetTable)
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!error && data) return data;
+    } catch (err) {
+      console.warn('Fetch from Supabase failed, reading LocalStorage:', err);
+    }
+  }
+
+  // Fallback read from LocalStorage
+  const localKey = templateType ? `exim_${tableMap[templateType]}` : 'exim_trade_posts_all';
+  return JSON.parse(localStorage.getItem(localKey) || '[]');
+}
+

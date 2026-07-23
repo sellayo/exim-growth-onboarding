@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useRef } from 'react';
 import PostCardCanvas from './PostCardCanvas';
 import { EXIM_COMMODITY_CATALOG, getStockImageUrl } from '../../lib/stockImages';
+import { saveTradePost } from '../../lib/supabase';
 import { 
   ShoppingBag, 
   Store, 
   Truck, 
+  Briefcase,
   HelpCircle, 
   Search, 
   Upload, 
@@ -18,54 +19,157 @@ import {
   Image as ImageIcon,
   Phone,
   Mail,
-  Globe
+  Globe,
+  Building,
+  User,
+  Wand2,
+  Send,
+  Download,
+  CheckCircle2,
+  FileImage
 } from 'lucide-react';
+
+const KERALA_EXPORT_HSN_CODES = [
+  { code: '0904.11', title: 'Black Pepper (Whole / Dried)' },
+  { code: '0908.31', title: 'Cardamom (Small Green Cardamom)' },
+  { code: '0910.11', title: 'Fresh / Dried Ginger' },
+  { code: '0910.30', title: 'Turmeric (Curcuma Whole/Powder)' },
+  { code: '0801.32', title: 'Cashew Nuts (Shelled Kernels)' },
+  { code: '0801.19', title: 'Desiccated Coconut / Coconut Products' },
+  { code: '1513.19', title: 'Coconut Oil (Refined / Virgin Oil)' },
+  { code: '0306.17', title: 'Frozen Shrimps & Prawns' },
+  { code: '0307.43', title: 'Frozen Squid & Cuttlefish' },
+  { code: '0902.30', title: 'Black Tea (Kerala Hill Garden Tea)' },
+  { code: '0901.11', title: 'Coffee Beans (Robusta / Arabica)' },
+  { code: '4001.22', title: 'Natural Rubber (Technically Specified)' },
+  { code: '5702.20', title: 'Coir Mats & Fibre Floor Coverings' },
+  { code: '0803.90', title: 'Fresh Bananas / Nendran Chips' },
+  { code: '3301.90', title: 'Spice Extract Oleoresins & Oils' },
+  { code: '6802.21', title: 'Granite & Natural Stone Slabs' },
+  { code: '1006.30', title: 'Rice (Basmati & Non-Basmati)' },
+  { code: '1701.99', title: 'Refined White Sugar' }
+];
+
+const COMMON_CERTIFICATIONS = [
+  'FSSAI (Food Safety India)',
+  'ISO 9001:2015 (Quality)',
+  'ISO 22000 / HACCP',
+  'APEDA Registration',
+  'Spices Board Certificate (CRES)',
+  'Coir Board Registration',
+  'Coconut Development Board (CDB)',
+  'US FDA Approved',
+  'EU Organic / NPOP Organic',
+  'Halal Certified',
+  'Kosher Certified',
+  'GMP (Good Manufacturing)',
+  'SGS Quality Inspection',
+  'Phytosanitary Certificate',
+  'Certificate of Origin (e-COO)',
+  'CE Marking (Europe)',
+  'BRCGS Global Standard',
+  'RoHS / REACH Compliant'
+];
+
+const PORT_PRESETS = [
+  'Jebel Ali Port, Dubai (UAE)',
+  'Mundra Port, Gujarat (India)',
+  'Cochin Port (Vallarpadam Terminal), Kerala',
+  'Nhava Sheva (JNPT), Mumbai (India)',
+  'Port of Rotterdam (Netherlands)',
+  'Felixstowe Port (UK)',
+  'Singapore Port (Singapore)',
+  'Chittagong Port (Bangladesh)',
+  'Dammam Port (Saudi Arabia)',
+  'Los Angeles Port (USA)',
+  'Hamburg Port (Germany)'
+];
+
+const TIMELINE_PRESETS = [
+  'Immediate / Next 7 Days',
+  'Next 15 Days',
+  'Within 30 Days',
+  'Monthly Contract / Recurring',
+  'Urgent Requirement'
+];
+
+const CONTAINER_PRESETS = [
+  '20ft Standard Container (FCL)',
+  '40ft High Cube Container (FCL)',
+  '40ft Reefer Container (Refrigerated)',
+  'LCL (Consolidated Parcel)',
+  'Air Freight Cargo',
+  'Break Bulk / Dry Bulk Vessel'
+];
+
+const EXIM_SERVICE_PRESETS = [
+  'Customs Clearance (CHA)',
+  'DGFT Export/Import Licensing & IEC',
+  'Sea / Air Freight Forwarding',
+  'Certificate of Origin (e-COO)',
+  'Quality Inspection & SGS Certification',
+  'Export Credit Insurance (ECGC)',
+  'Trade Finance & Letter of Credit (LC)',
+  'Legal & Trade Compliance Advisory',
+  'Export Packaging & Palletization'
+];
 
 export default function PostTemplatePortal({ onExit }) {
   const [templateType, setTemplateType] = useState('buyer');
+  const canvasRef = useRef(null);
 
   const [formData, setFormData] = useState({
-    product: 'Basmati Rice (1121 Steam)',
-    quantity: '50 Metric Tons (2x 40ft Containers)',
+    product: 'Kerala Black Pepper (Whole / Dried)',
+    price: '$6,500 / Metric Ton (FOB)',
+    quantity: '50 Metric Tons (MT)',
     destination: 'Jebel Ali Port, Dubai (UAE)',
-    timeline: 'Immediate / Next 15 Days',
-    requirements: 'FSSAI, ISO 22000, SGS Quality Certificate required',
+    timeline: 'Immediate / Next 7 Days',
+    requirements: 'FSSAI (Food Safety India), Spices Board Certificate (CRES), ISO 22000 / HACCP',
 
-    moq: '100 Units / 5 Metric Tons',
-    location: 'Gujarat, India',
-    certifications: 'ISO 9001, CE Certified, Export Grade',
+    moq: '5 Metric Tons (MT)',
+    location: 'Cochin Port (Vallarpadam Terminal), Kerala',
+    certifications: 'ISO 9001:2015 (Quality), FSSAI (Food Safety India), Phytosanitary Certificate',
 
-    origin: 'Mundra Port, India',
+    origin: 'Cochin Port (Vallarpadam Terminal), Kerala',
     container: '40ft High Cube Container (FCL)',
 
+    serviceType: 'Customs Clearance (CHA)',
+    serviceDetails: 'Need CHA assistance for DGFT export licensing & e-COO documentation.',
+    locationPort: 'Cochin Port (Vallarpadam Terminal), Kerala',
+
     problem: 'DGFT Export License & COO Process',
-    context: 'We are starting exports of organic spices to Europe and need guidance on Certificate of Origin.',
+    context: 'We are starting exports of organic spices from Kerala to Europe and need guidance on Certificate of Origin.',
     question: 'What is the fastest way to issue e-COO via DGFT portal for EU shipments?',
 
-    // Optional Contact Details
-    contactPhone: '',
-    contactEmail: '',
-    contactWebsite: ''
+    // Contact Details
+    companyName: 'EXIM Global Trade Pvt Ltd',
+    contactName: 'Rahul Sharma',
+    contactPhone: '+91 98765 43210',
+    contactEmail: 'trade@eximglobal.com',
+    contactWebsite: 'www.eximglobal.com'
   });
 
-  // Local text input state for typing (default: Sugar)
-  const [searchInputText, setSearchInputText] = useState('Sugar');
+  const [searchInputText, setSearchInputText] = useState('Pepper');
+  const [selectedImageUrl, setSelectedImageUrl] = useState(EXIM_COMMODITY_CATALOG[2].url);
   
-  // Selected Image URL (Default: Sugar photo)
-  const [selectedImageUrl, setSelectedImageUrl] = useState(EXIM_COMMODITY_CATALOG[0].url);
+  // Generation & Share state
+  const [hasGenerated, setHasGenerated] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [copiedText, setCopiedText] = useState(false);
+  const [saveStatus, setSaveStatus] = useState('');
+  const [shareNotice, setShareNotice] = useState('');
 
   const handleFieldChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    setHasGenerated(false); // Reset generated state when details change
   };
 
-  // Search ONLY executes when Enter is pressed or Search button is clicked
   const triggerImageSearch = (query) => {
     const cleanQuery = (query || searchInputText).trim();
     if (!cleanQuery) return;
-
     const matchedUrl = getStockImageUrl(cleanQuery);
     setSelectedImageUrl(matchedUrl);
+    setHasGenerated(false);
   };
 
   const handleFileUpload = (e) => {
@@ -75,36 +179,50 @@ export default function PostTemplatePortal({ onExit }) {
       reader.onload = (uploadEvent) => {
         if (uploadEvent.target?.result) {
           setSelectedImageUrl(uploadEvent.target.result);
+          setHasGenerated(false);
         }
       };
       reader.readAsDataURL(file);
     }
   };
 
+  // Generate WhatsApp Formatted Text
   const generateWhatsAppText = () => {
     let mainBody = '';
+    
     if (templateType === 'buyer') {
-      mainBody = `📢 *EXIM GROWTH NETWORK - BUYER REQUIREMENT*
+      mainBody = `📢 *EXIM GROWTH NETWORK - BUY REQUIREMENT*
 ─────────────────────────────
-📦 *Product:* ${formData.product || 'N/A'}
-⚖️ *Quantity:* ${formData.quantity || 'N/A'}
+📦 *Product Required:* ${formData.product || 'N/A'}
+${formData.price ? `💰 *Target Price:* ${formData.price}\n` : ''}⚖️ *Quantity:* ${formData.quantity || 'N/A'}
 📍 *Destination:* ${formData.destination || 'N/A'}
 ⏱️ *Timeline:* ${formData.timeline || 'Immediate'}
 📝 *Requirements:* ${formData.requirements || 'Standard Quality'}`;
+
     } else if (templateType === 'supplier') {
-      mainBody = `📢 *EXIM GROWTH NETWORK - SUPPLIER REQUEST / OFFER*
+      mainBody = `📢 *EXIM GROWTH NETWORK - SELL OFFER / SUPPLY*
 ─────────────────────────────
-📦 *Product:* ${formData.product || 'N/A'}
-🔢 *MOQ:* ${formData.moq || 'N/A'}
-🏭 *Location:* ${formData.location || 'N/A'}
+📦 *Product Offered:* ${formData.product || 'N/A'}
+${formData.price ? `💰 *Offering Price:* ${formData.price}\n` : ''}🔢 *MOQ:* ${formData.moq || 'Flexible'}
+🏭 *Origin / Location:* ${formData.location || 'N/A'}
 🏆 *Certifications:* ${formData.certifications || 'ISO Certified'}`;
+
     } else if (templateType === 'logistics') {
-      mainBody = `📢 *EXIM GROWTH NETWORK - LOGISTICS HELP*
+      mainBody = `📢 *EXIM GROWTH NETWORK - LOGISTICS & SHIPPING*
 ─────────────────────────────
-🛫 *Origin:* ${formData.origin || 'N/A'}
-𛬬 *Destination:* ${formData.destination || 'N/A'}
-🚢 *Container/Cargo:* ${formData.container || 'FCL/LCL'}
+🚢 *Cargo / Container:* ${formData.container || 'FCL/LCL'}
+${formData.product ? `📦 *Product / Cargo:* ${formData.product}\n` : ''}🛫 *Origin:* ${formData.origin || 'N/A'}
+🛬 *Destination:* ${formData.destination || 'N/A'}
 ⏱️ *Timeline:* ${formData.timeline || 'Immediate'}`;
+
+    } else if (templateType === 'exim_service') {
+      mainBody = `📢 *EXIM GROWTH NETWORK - EXIM SERVICE REQUEST*
+─────────────────────────────
+🛠️ *Service Required:* ${formData.serviceType || 'EXIM Advisory'}
+📝 *Details & Compliance:* ${formData.serviceDetails || formData.requirements || 'General Assistance'}
+📍 *Location / Port:* ${formData.locationPort || 'N/A'}
+⏱️ *Timeline:* ${formData.timeline || 'Immediate'}`;
+
     } else {
       mainBody = `📢 *EXIM GROWTH NETWORK - COMMUNITY QUESTION*
 ─────────────────────────────
@@ -113,19 +231,30 @@ export default function PostTemplatePortal({ onExit }) {
 💡 *Question:* ${formData.question || 'N/A'}`;
     }
 
-    let contactBlock = '';
+    // Poster & Contact block
     const contacts = [];
+    if (formData.companyName?.trim()) contacts.push(`🏢 ${formData.companyName.trim()}`);
+    if (formData.contactName?.trim()) contacts.push(`👤 ${formData.contactName.trim()}`);
     if (formData.contactPhone?.trim()) contacts.push(`📞 ${formData.contactPhone.trim()}`);
     if (formData.contactEmail?.trim()) contacts.push(`✉️ ${formData.contactEmail.trim()}`);
     if (formData.contactWebsite?.trim()) contacts.push(`🌐 ${formData.contactWebsite.trim()}`);
 
+    let contactBlock = '';
     if (contacts.length > 0) {
-      contactBlock = `\n👤 *Contact:* ${contacts.join(' | ')}`;
+      contactBlock = `\n─────────────────────────────\n` + contacts.join('\n');
     }
 
     return `${mainBody}${contactBlock}
 ─────────────────────────────
 💬 *DM for more details or reply in EXIM Growth Network*`;
+  };
+
+  const handleGenerate = () => {
+    setIsGenerating(true);
+    setTimeout(() => {
+      setIsGenerating(false);
+      setHasGenerated(true);
+    }, 450);
   };
 
   const handleCopyText = () => {
@@ -135,15 +264,127 @@ export default function PostTemplatePortal({ onExit }) {
     setTimeout(() => setCopiedText(false), 2500);
   };
 
-  const handleShareWhatsApp = () => {
+  const persistPostToDB = async () => {
+    try {
+      setSaveStatus('Saving Details to DB...');
+      await saveTradePost(templateType, formData);
+      setSaveStatus('✅ Details Saved to DB!');
+      setTimeout(() => setSaveStatus(''), 3500);
+    } catch (err) {
+      console.error('Save to DB error:', err);
+      setSaveStatus('⚠️ Saved to LocalStorage');
+      setTimeout(() => setSaveStatus(''), 3500);
+    }
+  };
+
+  const getCanvasImageFile = async () => {
+    const canvas = canvasRef.current || document.querySelector('canvas');
+    if (!canvas) return null;
+    return new Promise((resolve) => {
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          resolve(null);
+          return;
+        }
+        const file = new File([blob], `EXIM_Trade_Post_${templateType}_${Date.now()}.png`, { type: 'image/png' });
+        resolve(file);
+      }, 'image/png');
+    });
+  };
+
+  const triggerImageDownload = () => {
+    const canvas = canvasRef.current || document.querySelector('canvas');
+    if (!canvas) return;
+    const link = document.createElement('a');
+    link.download = `EXIM_Trade_Post_${templateType}_${Date.now()}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  };
+
+  const handleShareDirectGroup = async () => {
+    await persistPostToDB();
+    triggerImageDownload();
+    handleCopyText();
+
+    let targetGroupUrl = 'https://chat.whatsapp.com/Hbxjyk6YE0hLf9Pt8XPl1k';
+    if (templateType === 'logistics' || templateType === 'exim_service') {
+      targetGroupUrl = 'https://chat.whatsapp.com/GP9H7iXzciZ0tcPG8Oj3mw';
+    } else if (templateType === 'question') {
+      targetGroupUrl = 'https://chat.whatsapp.com/Kan62U7jTiyJHBXhVPSBbx';
+    }
+
+    setShareNotice('📷 Image downloaded & 📋 text copied! Opening WhatsApp group...');
+    setTimeout(() => setShareNotice(''), 5000);
+    window.open(targetGroupUrl, '_blank');
+  };
+
+  const handleShareImageOnly = async () => {
+    await persistPostToDB();
+    const imageFile = await getCanvasImageFile();
+
+    if (imageFile && navigator.canShare && navigator.canShare({ files: [imageFile] })) {
+      try {
+        await navigator.share({
+          title: 'EXIM Trade Banner',
+          files: [imageFile]
+        });
+        setShareNotice('📷 Image shared successfully!');
+        setTimeout(() => setShareNotice(''), 4000);
+        return;
+      } catch (err) {
+        console.log('Share image cancelled:', err);
+      }
+    }
+
+    triggerImageDownload();
+    setShareNotice('📷 Banner image downloaded to your device!');
+    setTimeout(() => setShareNotice(''), 4000);
+  };
+
+  const handleShareTextOnly = async () => {
+    await persistPostToDB();
     const text = generateWhatsAppText();
-    const waShareUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
-    window.open(waShareUrl, '_blank');
+    handleCopyText();
+
+    const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+    window.open(waUrl, '_blank');
+
+    setShareNotice('💬 Text copied to clipboard & WhatsApp opened!');
+    setTimeout(() => setShareNotice(''), 4000);
+  };
+
+  const handleShareBoth = async () => {
+    await persistPostToDB();
+    const text = generateWhatsAppText();
+    const imageFile = await getCanvasImageFile();
+
+    if (imageFile && navigator.canShare && navigator.canShare({ files: [imageFile] })) {
+      try {
+        await navigator.share({
+          title: 'EXIM Growth Trade Post',
+          text: text,
+          files: [imageFile]
+        });
+        setShareNotice('✅ Post shared successfully!');
+        setTimeout(() => setShareNotice(''), 4000);
+        return;
+      } catch (err) {
+        console.log('Native share cancelled:', err);
+      }
+    }
+
+    triggerImageDownload();
+    handleCopyText();
+
+    setShareNotice('💻 Desktop Info: Image downloaded & Text copied! Attach image in WhatsApp Web & paste text.');
+    setTimeout(() => setShareNotice(''), 6000);
+
+    const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+    window.open(waUrl, '_blank');
   };
 
   return (
-    <div className="w-full max-w-6xl mx-auto py-4 sm:py-6 px-3 sm:px-6 space-y-4 sm:space-y-6">
-      {/* Header Bar */}
+    <div className="w-full max-w-6xl mx-auto py-4 sm:py-6 px-3 sm:px-6 space-y-4 sm:space-y-6 font-sans">
       <div className="p-4 sm:p-5 rounded-3xl bg-white border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <img
@@ -153,15 +394,17 @@ export default function PostTemplatePortal({ onExit }) {
           />
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="font-extrabold text-base sm:text-lg text-ocean-950 tracking-tight leading-none font-sans">
-                WhatsApp Trade Post Generator
+              <h2 className="font-extrabold text-base sm:text-xl tracking-tight leading-none">
+                <span className="text-[#0B3FAD]">EXIM Growth</span>{' '}
+                <span className="text-[#F57E13]">Network</span>
+                <span className="text-slate-700 font-semibold text-xs sm:text-sm ml-2">| Trade Post Generator</span>
               </h2>
               <span className="px-2 py-0.5 text-[10px] font-bold uppercase bg-gold-50 text-gold-700 border border-gold-300 rounded-full flex items-center gap-1">
                 <Sparkles className="w-3 h-3 text-gold-500" /> High Visibility
               </span>
             </div>
-            <p className="text-[11px] sm:text-xs text-slate-500 font-medium mt-0.5">
-              Standardized trade posts & visual image banners for community groups.
+            <p className="text-[11px] sm:text-xs text-slate-500 font-medium mt-1">
+              Generate standardized visual banners & formatted posts for WhatsApp & Social Groups.
             </p>
           </div>
         </div>
@@ -177,346 +420,450 @@ export default function PostTemplatePortal({ onExit }) {
         )}
       </div>
 
-      {/* Template Selection Tabs (Mobile Responsive 2x2 Grid) */}
-      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
         <button
           type="button"
-          onClick={() => setTemplateType('buyer')}
-          className={`p-3 sm:p-4 rounded-2xl border text-left transition-all duration-200 flex items-center gap-2.5 cursor-pointer ${
+          onClick={() => { setTemplateType('buyer'); setHasGenerated(false); }}
+          className={`p-3 rounded-2xl border text-left transition-all duration-200 flex items-center gap-2.5 cursor-pointer ${
             templateType === 'buyer'
-              ? 'bg-ocean-950 text-white border-ocean-950 shadow-md ring-2 ring-gold-400/40'
-              : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+              ? 'bg-emerald-600 text-white border-emerald-600 shadow-md ring-2 ring-emerald-400/40'
+              : 'bg-emerald-50 text-emerald-900 border-emerald-200 hover:bg-emerald-100'
           }`}
         >
-          <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center shrink-0 ${templateType === 'buyer' ? 'bg-gold-500 text-ocean-950' : 'bg-slate-100 text-ocean-900'}`}>
-            <ShoppingBag className="w-4 h-4 sm:w-5 sm:h-5" />
+          <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${templateType === 'buyer' ? 'bg-white text-emerald-700' : 'bg-emerald-200 text-emerald-900'}`}>
+            <ShoppingBag className="w-4 h-4" />
           </div>
           <div className="min-w-0">
-            <h3 className="font-bold text-xs truncate">Buyer Requirement</h3>
-            <p className={`text-[10px] truncate ${templateType === 'buyer' ? 'text-slate-300' : 'text-slate-400'}`}>Post buying leads</p>
+            <h3 className="font-black text-sm sm:text-base tracking-wider uppercase truncate">BUY</h3>
+            <p className={`text-[10px] truncate ${templateType === 'buyer' ? 'text-emerald-100' : 'text-emerald-700'}`}>Buying Requirements</p>
           </div>
         </button>
 
         <button
           type="button"
-          onClick={() => setTemplateType('supplier')}
-          className={`p-3 sm:p-4 rounded-2xl border text-left transition-all duration-200 flex items-center gap-2.5 cursor-pointer ${
+          onClick={() => { setTemplateType('supplier'); setHasGenerated(false); }}
+          className={`p-3 rounded-2xl border text-left transition-all duration-200 flex items-center gap-2.5 cursor-pointer ${
             templateType === 'supplier'
-              ? 'bg-ocean-950 text-white border-ocean-950 shadow-md ring-2 ring-gold-400/40'
-              : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+              ? 'bg-red-600 text-white border-red-600 shadow-md ring-2 ring-red-400/40'
+              : 'bg-red-50 text-red-900 border-red-200 hover:bg-red-100'
           }`}
         >
-          <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center shrink-0 ${templateType === 'supplier' ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-ocean-900'}`}>
-            <Store className="w-4 h-4 sm:w-5 sm:h-5" />
+          <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${templateType === 'supplier' ? 'bg-white text-red-700' : 'bg-red-200 text-red-900'}`}>
+            <Store className="w-4 h-4" />
           </div>
           <div className="min-w-0">
-            <h3 className="font-bold text-xs truncate">Supplier Request</h3>
-            <p className={`text-[10px] truncate ${templateType === 'supplier' ? 'text-slate-300' : 'text-slate-400'}`}>Post supply offers</p>
+            <h3 className="font-black text-sm sm:text-base tracking-wider uppercase truncate">SELL</h3>
+            <p className={`text-[10px] truncate ${templateType === 'supplier' ? 'text-red-100' : 'text-red-700'}`}>Supply Offers</p>
           </div>
         </button>
 
         <button
           type="button"
-          onClick={() => setTemplateType('logistics')}
-          className={`p-3 sm:p-4 rounded-2xl border text-left transition-all duration-200 flex items-center gap-2.5 cursor-pointer ${
+          onClick={() => { setTemplateType('logistics'); setHasGenerated(false); }}
+          className={`p-3 rounded-2xl border text-left transition-all duration-200 flex items-center gap-2.5 cursor-pointer ${
             templateType === 'logistics'
-              ? 'bg-ocean-950 text-white border-ocean-950 shadow-md ring-2 ring-gold-400/40'
-              : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+              ? 'bg-blue-600 text-white border-blue-600 shadow-md ring-2 ring-blue-400/40'
+              : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
           }`}
         >
-          <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center shrink-0 ${templateType === 'logistics' ? 'bg-blue-500 text-white' : 'bg-slate-100 text-ocean-900'}`}>
-            <Truck className="w-4 h-4 sm:w-5 sm:h-5" />
+          <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${templateType === 'logistics' ? 'bg-white text-blue-700' : 'bg-slate-100 text-ocean-900'}`}>
+            <Truck className="w-4 h-4" />
           </div>
           <div className="min-w-0">
-            <h3 className="font-bold text-xs truncate">Logistics Help</h3>
-            <p className={`text-[10px] truncate ${templateType === 'logistics' ? 'text-slate-300' : 'text-slate-400'}`}>Freight & ports</p>
+            <h3 className="font-bold text-xs sm:text-sm truncate">Logistics</h3>
+            <p className={`text-[10px] truncate ${templateType === 'logistics' ? 'text-blue-100' : 'text-slate-400'}`}>Freight & Cargo</p>
           </div>
         </button>
 
         <button
           type="button"
-          onClick={() => setTemplateType('question')}
-          className={`p-3 sm:p-4 rounded-2xl border text-left transition-all duration-200 flex items-center gap-2.5 cursor-pointer ${
-            templateType === 'question'
-              ? 'bg-ocean-950 text-white border-ocean-950 shadow-md ring-2 ring-gold-400/40'
-              : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+          onClick={() => { setTemplateType('exim_service'); setHasGenerated(false); }}
+          className={`p-3 rounded-2xl border text-left transition-all duration-200 flex items-center gap-2.5 cursor-pointer ${
+            templateType === 'exim_service'
+              ? 'bg-amber-600 text-white border-amber-600 shadow-md ring-2 ring-amber-400/40'
+              : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
           }`}
         >
-          <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center shrink-0 ${templateType === 'question' ? 'bg-purple-500 text-white' : 'bg-slate-100 text-ocean-900'}`}>
-            <HelpCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+          <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${templateType === 'exim_service' ? 'bg-white text-amber-700' : 'bg-slate-100 text-ocean-900'}`}>
+            <Briefcase className="w-4 h-4" />
           </div>
           <div className="min-w-0">
-            <h3 className="font-bold text-xs truncate">Question / Inquiry</h3>
-            <p className={`text-[10px] truncate ${templateType === 'question' ? 'text-slate-300' : 'text-slate-400'}`}>Ask trade experts</p>
+            <h3 className="font-bold text-xs sm:text-sm truncate">Exim Services</h3>
+            <p className={`text-[10px] truncate ${templateType === 'exim_service' ? 'text-amber-100' : 'text-slate-400'}`}>CHA, License, COO</p>
+          </div>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => { setTemplateType('question'); setHasGenerated(false); }}
+          className={`p-3 rounded-2xl border text-left transition-all duration-200 flex items-center gap-2.5 cursor-pointer ${
+            templateType === 'question'
+              ? 'bg-purple-600 text-white border-purple-600 shadow-md ring-2 ring-purple-400/40'
+              : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+          }`}
+        >
+          <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${templateType === 'question' ? 'bg-white text-purple-700' : 'bg-slate-100 text-ocean-900'}`}>
+            <HelpCircle className="w-4 h-4" />
+          </div>
+          <div className="min-w-0">
+            <h3 className="font-bold text-xs sm:text-sm truncate">Question</h3>
+            <p className={`text-[10px] truncate ${templateType === 'question' ? 'text-purple-100' : 'text-slate-400'}`}>Ask Community</p>
           </div>
         </button>
       </div>
 
-      {/* Main Generator Workspace Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-        {/* Left Column: Form & Image Controls (7 Cols) */}
         <div className="lg:col-span-7 bg-white rounded-3xl border border-slate-200 p-4 sm:p-6 shadow-sm space-y-5">
-          <div>
-            <h3 className="text-sm sm:text-base font-extrabold text-ocean-950 border-b pb-2">
-              Fill Trade Details
+          <div className="flex items-center justify-between border-b pb-2">
+            <h3 className="text-sm sm:text-base font-extrabold text-ocean-950 uppercase tracking-wide">
+              Fill Trade & Contact Details
             </h3>
+            {saveStatus && (
+              <span className="text-xs font-bold text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full border border-emerald-300 animate-pulse">
+                {saveStatus}
+              </span>
+            )}
+          </div>
 
-            {/* Template Specific Form Fields */}
-            <div className="space-y-3.5 mt-4 text-xs font-medium">
-              {templateType === 'buyer' && (
-                <>
+          <div className="space-y-4 text-xs font-medium">
+            {/* BUY Form */}
+            {templateType === 'buyer' && (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">● Product Name *</label>
+                    <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
+                      ● Product Name *
+                    </label>
                     <input
                       type="text"
                       value={formData.product}
                       onChange={(e) => handleFieldChange('product', e.target.value)}
-                      placeholder="e.g. Sugar, Black Pepper, Mangoes, Rice, Tiles"
+                      placeholder="e.g. Kerala Black Pepper, Cashew Kernels, Coir Mats"
                       className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-ocean-950 outline-none text-xs font-medium"
                     />
                   </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">● Quantity *</label>
-                      <input
-                        type="text"
-                        value={formData.quantity}
-                        onChange={(e) => handleFieldChange('quantity', e.target.value)}
-                        placeholder="e.g. 50 Metric Tons / 2 Containers"
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-ocean-950 outline-none text-xs font-medium"
-                      />
-                    </div>
-                    <div>
-                      <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">● Destination *</label>
-                      <input
-                        type="text"
-                        value={formData.destination}
-                        onChange={(e) => handleFieldChange('destination', e.target.value)}
-                        placeholder="e.g. Jebel Ali Port, UAE"
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-ocean-950 outline-none text-xs font-medium"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">● Timeline *</label>
-                      <input
-                        type="text"
-                        value={formData.timeline}
-                        onChange={(e) => handleFieldChange('timeline', e.target.value)}
-                        placeholder="e.g. Immediate / Next 15 Days"
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-ocean-950 outline-none text-xs font-medium"
-                      />
-                    </div>
-                    <div>
-                      <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">● Requirements</label>
-                      <input
-                        type="text"
-                        value={formData.requirements}
-                        onChange={(e) => handleFieldChange('requirements', e.target.value)}
-                        placeholder="e.g. ISO 22000, SGS Inspection report"
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-ocean-950 outline-none text-xs font-medium"
-                      />
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {templateType === 'supplier' && (
-                <>
                   <div>
-                    <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">● Product Name *</label>
+                    <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
+                      Target Price / Rate <span className="text-slate-400 font-normal text-[10px]">(Optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.price}
+                      onChange={(e) => handleFieldChange('price', e.target.value)}
+                      placeholder="e.g. $6,500 / MT, ₹450 / Kg, Negotiable"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-ocean-950 outline-none text-xs font-medium"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <QuantityWithUnitInput
+                    label="Quantity Required"
+                    required
+                    value={formData.quantity}
+                    onChange={(val) => handleFieldChange('quantity', val)}
+                  />
+                  <DropdownWithCustomInput
+                    label="Destination Port / Country"
+                    required
+                    options={PORT_PRESETS}
+                    value={formData.destination}
+                    onChange={(val) => handleFieldChange('destination', val)}
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <DropdownWithCustomInput
+                    label="Timeline"
+                    required
+                    options={TIMELINE_PRESETS}
+                    value={formData.timeline}
+                    onChange={(val) => handleFieldChange('timeline', val)}
+                  />
+                  <MultiSelectCertificationsInput
+                    label="Quality Requirements & Certifications"
+                    value={formData.requirements}
+                    onChange={(val) => handleFieldChange('requirements', val)}
+                    placeholder="Type custom compliance/test report & press Enter..."
+                  />
+                </div>
+              </>
+            )}
+
+            {/* SELL Form */}
+            {templateType === 'supplier' && (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
+                      ● Product Offered *
+                    </label>
                     <input
                       type="text"
                       value={formData.product}
                       onChange={(e) => handleFieldChange('product', e.target.value)}
-                      placeholder="e.g. Sugar, Fresh Mangoes, Black Pepper"
+                      placeholder="e.g. Green Cardamom 8mm+, Virgin Coconut Oil"
                       className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-ocean-950 outline-none text-xs font-medium"
                     />
                   </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                      <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">● MOQ *</label>
-                      <input
-                        type="text"
-                        value={formData.moq}
-                        onChange={(e) => handleFieldChange('moq', e.target.value)}
-                        placeholder="e.g. 5 Tons / 100 Units"
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-ocean-950 outline-none text-xs font-medium"
-                      />
-                    </div>
-                    <div>
-                      <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">● Location / Origin *</label>
-                      <input
-                        type="text"
-                        value={formData.location}
-                        onChange={(e) => handleFieldChange('location', e.target.value)}
-                        placeholder="e.g. Gujarat, India"
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-ocean-950 outline-none text-xs font-medium"
-                      />
-                    </div>
-                    <div>
-                      <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">● Certifications</label>
-                      <input
-                        type="text"
-                        value={formData.certifications}
-                        onChange={(e) => handleFieldChange('certifications', e.target.value)}
-                        placeholder="e.g. ISO 9001, CE, Organic"
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-ocean-950 outline-none text-xs font-medium"
-                      />
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {templateType === 'logistics' && (
-                <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">● Origin *</label>
-                      <input
-                        type="text"
-                        value={formData.origin}
-                        onChange={(e) => handleFieldChange('origin', e.target.value)}
-                        placeholder="e.g. Mundra Port, Gujarat"
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-ocean-950 outline-none text-xs font-medium"
-                      />
-                    </div>
-                    <div>
-                      <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">● Destination *</label>
-                      <input
-                        type="text"
-                        value={formData.destination}
-                        onChange={(e) => handleFieldChange('destination', e.target.value)}
-                        placeholder="e.g. Felixstowe, UK"
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-ocean-950 outline-none text-xs font-medium"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">● Container / Cargo *</label>
-                      <input
-                        type="text"
-                        value={formData.container}
-                        onChange={(e) => handleFieldChange('container', e.target.value)}
-                        placeholder="e.g. 40ft High Cube Container (FCL)"
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-ocean-950 outline-none text-xs font-medium"
-                      />
-                    </div>
-                    <div>
-                      <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">● Timeline *</label>
-                      <input
-                        type="text"
-                        value={formData.timeline}
-                        onChange={(e) => handleFieldChange('timeline', e.target.value)}
-                        placeholder="e.g. Next Vessel / Immediate"
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-ocean-950 outline-none text-xs font-medium"
-                      />
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {templateType === 'question' && (
-                <>
                   <div>
-                    <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">● Problem / Topic *</label>
+                    <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
+                      Offering Price / Rate <span className="text-slate-400 font-normal text-[10px]">(Optional)</span>
+                    </label>
                     <input
                       type="text"
-                      value={formData.problem}
-                      onChange={(e) => handleFieldChange('problem', e.target.value)}
-                      placeholder="e.g. DGFT Export License & COO Process"
+                      value={formData.price}
+                      onChange={(e) => handleFieldChange('price', e.target.value)}
+                      placeholder="e.g. ₹520 / Kg, $7,200 / MT, Best Market Rate"
                       className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-ocean-950 outline-none text-xs font-medium"
                     />
                   </div>
+                </div>
 
-                  <div>
-                    <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">● Context *</label>
-                    <textarea
-                      rows="2"
-                      value={formData.context}
-                      onChange={(e) => handleFieldChange('context', e.target.value)}
-                      placeholder="Describe background context..."
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-ocean-950 outline-none resize-none text-xs font-medium"
-                    />
-                  </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <QuantityWithUnitInput
+                    label="MOQ (Min Order Qty)"
+                    required
+                    value={formData.moq}
+                    onChange={(val) => handleFieldChange('moq', val)}
+                  />
+                  <DropdownWithCustomInput
+                    label="Origin / Location"
+                    required
+                    options={PORT_PRESETS}
+                    value={formData.location}
+                    onChange={(val) => handleFieldChange('location', val)}
+                  />
+                </div>
 
+                <MultiSelectCertificationsInput
+                  label="Certifications & Compliance"
+                  value={formData.certifications}
+                  onChange={(val) => handleFieldChange('certifications', val)}
+                  placeholder="Type custom certificate/license & press Enter..."
+                />
+              </>
+            )}
+
+            {/* LOGISTICS Form */}
+            {templateType === 'logistics' && (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <DropdownWithCustomInput
+                    label="Container & Cargo Type"
+                    required
+                    options={CONTAINER_PRESETS}
+                    value={formData.container}
+                    onChange={(val) => handleFieldChange('container', val)}
+                  />
                   <div>
-                    <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">● Specific Question *</label>
+                    <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
+                      Product / Cargo Name <span className="text-slate-400 font-normal text-[10px]">(Optional)</span>
+                    </label>
                     <input
                       type="text"
-                      value={formData.question}
-                      onChange={(e) => handleFieldChange('question', e.target.value)}
-                      placeholder="e.g. What is the fastest way to get e-COO approved?"
+                      value={formData.product}
+                      onChange={(e) => handleFieldChange('product', e.target.value)}
+                      placeholder="e.g. Frozen Shrimps, Spices & Tea, Granite Slabs"
                       className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-ocean-950 outline-none text-xs font-medium"
                     />
                   </div>
-                </>
-              )}
+                </div>
 
-              {/* Optional Contact Details Section */}
-              <div className="pt-3 border-t border-slate-200/80">
-                <span className="block font-bold text-slate-500 uppercase tracking-wider text-[11px] mb-2">
-                  Optional Contact Info (Appears in Card Banner & Text)
-                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <DropdownWithCustomInput
+                    label="Origin Port / City"
+                    required
+                    options={PORT_PRESETS}
+                    value={formData.origin}
+                    onChange={(val) => handleFieldChange('origin', val)}
+                  />
+                  <DropdownWithCustomInput
+                    label="Destination Port"
+                    required
+                    options={PORT_PRESETS}
+                    value={formData.destination}
+                    onChange={(val) => handleFieldChange('destination', val)}
+                  />
+                  <DropdownWithCustomInput
+                    label="Timeline"
+                    required
+                    options={TIMELINE_PRESETS}
+                    value={formData.timeline}
+                    onChange={(val) => handleFieldChange('timeline', val)}
+                  />
+                </div>
+              </>
+            )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-600 mb-1 flex items-center gap-1">
-                      <Phone className="w-3 h-3 text-emerald-600" /> Phone / WhatsApp
-                    </label>
-                    <input
-                      type="tel"
-                      value={formData.contactPhone}
-                      onChange={(e) => handleFieldChange('contactPhone', e.target.value)}
-                      placeholder="+91 98765 43210"
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-ocean-950 outline-none text-xs"
-                    />
-                  </div>
+            {/* EXIM SERVICES Form */}
+            {templateType === 'exim_service' && (
+              <>
+                <DropdownWithCustomInput
+                  label="Service Type Required"
+                  required
+                  options={EXIM_SERVICE_PRESETS}
+                  value={formData.serviceType}
+                  onChange={(val) => handleFieldChange('serviceType', val)}
+                />
 
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-600 mb-1 flex items-center gap-1">
-                      <Mail className="w-3 h-3 text-blue-600" /> Email
-                    </label>
-                    <input
-                      type="email"
-                      value={formData.contactEmail}
-                      onChange={(e) => handleFieldChange('contactEmail', e.target.value)}
-                      placeholder="trade@company.com"
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-ocean-950 outline-none text-xs"
-                    />
-                  </div>
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">● Service Request Details</label>
+                  <input
+                    type="text"
+                    value={formData.serviceDetails}
+                    onChange={(e) => handleFieldChange('serviceDetails', e.target.value)}
+                    placeholder="e.g. Need CHA clearance for 2x 40ft containers of spices at Vallarpadam Terminal"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-ocean-950 outline-none text-xs font-medium"
+                  />
+                </div>
 
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-600 mb-1 flex items-center gap-1">
-                      <Globe className="w-3 h-3 text-purple-600" /> Website
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.contactWebsite}
-                      onChange={(e) => handleFieldChange('contactWebsite', e.target.value)}
-                      placeholder="www.company.com"
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-ocean-950 outline-none text-xs"
-                    />
-                  </div>
+                <MultiSelectCertificationsInput
+                  label="Required Compliance & Licenses"
+                  value={formData.requirements}
+                  onChange={(val) => handleFieldChange('requirements', val)}
+                  placeholder="Type compliance/license needed & press Enter..."
+                />
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <DropdownWithCustomInput
+                    label="Location / Port"
+                    required
+                    options={PORT_PRESETS}
+                    value={formData.locationPort}
+                    onChange={(val) => handleFieldChange('locationPort', val)}
+                  />
+                  <DropdownWithCustomInput
+                    label="Timeline"
+                    required
+                    options={TIMELINE_PRESETS}
+                    value={formData.timeline}
+                    onChange={(val) => handleFieldChange('timeline', val)}
+                  />
+                </div>
+              </>
+            )}
+
+            {templateType === 'question' && (
+              <>
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">● Problem / Topic *</label>
+                  <input
+                    type="text"
+                    value={formData.problem}
+                    onChange={(e) => handleFieldChange('problem', e.target.value)}
+                    placeholder="e.g. DGFT Export License & COO Process"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-ocean-950 outline-none text-xs font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">● Context *</label>
+                  <textarea
+                    rows="2"
+                    value={formData.context}
+                    onChange={(e) => handleFieldChange('context', e.target.value)}
+                    placeholder="Describe background context..."
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-ocean-950 outline-none resize-none text-xs font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">● Specific Question *</label>
+                  <input
+                    type="text"
+                    value={formData.question}
+                    onChange={(e) => handleFieldChange('question', e.target.value)}
+                    placeholder="e.g. What is the fastest way to get e-COO approved?"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-ocean-950 outline-none text-xs font-medium"
+                  />
+                </div>
+              </>
+            )}
+
+            <div className="pt-3 border-t border-slate-200">
+              <span className="block font-bold text-slate-600 uppercase tracking-wider text-[11px] mb-2 flex items-center gap-1">
+                <User className="w-3.5 h-3.5 text-blue-600" />
+                <span>Poster & Contact Details (Appears on Card & Text)</span>
+              </span>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-2.5">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1 flex items-center gap-1">
+                    <Building className="w-3 h-3 text-slate-500" /> Company Name (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.companyName}
+                    onChange={(e) => handleFieldChange('companyName', e.target.value)}
+                    placeholder="e.g. EXIM Global Trade Pvt Ltd"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-ocean-950 outline-none text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1 flex items-center gap-1">
+                    <User className="w-3 h-3 text-slate-500" /> Contact Person Name (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.contactName}
+                    onChange={(e) => handleFieldChange('contactName', e.target.value)}
+                    placeholder="e.g. Rahul Sharma"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-ocean-950 outline-none text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1 flex items-center gap-1">
+                    <Phone className="w-3 h-3 text-emerald-600" /> Phone / WhatsApp
+                  </label>
+                  <input
+                    type="tel"
+                    value={formData.contactPhone}
+                    onChange={(e) => handleFieldChange('contactPhone', e.target.value)}
+                    placeholder="+91 98765 43210"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-ocean-950 outline-none text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1 flex items-center gap-1">
+                    <Mail className="w-3 h-3 text-blue-600" /> Email
+                  </label>
+                  <input
+                    type="email"
+                    value={formData.contactEmail}
+                    onChange={(e) => handleFieldChange('contactEmail', e.target.value)}
+                    placeholder="trade@company.com"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-ocean-950 outline-none text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1 flex items-center gap-1">
+                    <Globe className="w-3 h-3 text-purple-600" /> Website / Link
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.contactWebsite}
+                    onChange={(e) => handleFieldChange('contactWebsite', e.target.value)}
+                    placeholder="www.company.com"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-ocean-950 outline-none text-xs"
+                  />
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Stock Image Search & Upload Section */}
           <div className="pt-4 border-t border-slate-100">
             <h4 className="text-xs font-extrabold text-ocean-950 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
               <ImageIcon className="w-4 h-4 text-gold-600" />
               <span>Product Image (Stock Search & Device Upload)</span>
             </h4>
 
-            {/* Search Input & Action Buttons */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 mb-3">
               <div className="relative flex-1">
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
@@ -530,7 +877,7 @@ export default function PostTemplatePortal({ onExit }) {
                       triggerImageSearch(searchInputText);
                     }
                   }}
-                  placeholder="Type commodity name (e.g. Sugar, Mango, Black Pepper) & press Enter..."
+                  placeholder="Type commodity (e.g. Rice, Sugar, Mango, Tiles) & press Enter..."
                   className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:border-ocean-950 outline-none"
                 />
               </div>
@@ -550,7 +897,6 @@ export default function PostTemplatePortal({ onExit }) {
               </label>
             </div>
 
-            {/* Quick EXIM Commodity Preset Badges */}
             <div className="flex flex-wrap gap-1.5">
               {EXIM_COMMODITY_CATALOG.map((imgItem, idx) => (
                 <button
@@ -559,6 +905,7 @@ export default function PostTemplatePortal({ onExit }) {
                   onClick={() => {
                     setSearchInputText(imgItem.title);
                     setSelectedImageUrl(imgItem.url);
+                    setHasGenerated(false);
                   }}
                   className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all flex items-center gap-1.5 border cursor-pointer ${
                     selectedImageUrl === imgItem.url
@@ -572,73 +919,432 @@ export default function PostTemplatePortal({ onExit }) {
               ))}
             </div>
           </div>
+
+          <div className="pt-3 border-t border-slate-200">
+            <button
+              type="button"
+              onClick={handleGenerate}
+              disabled={isGenerating}
+              className="w-full py-4 px-5 rounded-2xl bg-gold-500 hover:bg-gold-600 text-ocean-950 font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2.5 shadow-lg shadow-gold-500/20 transition-all cursor-pointer ring-2 ring-gold-400/50 hover:scale-[1.01] active:scale-[0.99]"
+            >
+              <Wand2 className={`w-5 h-5 ${isGenerating ? 'animate-spin' : ''}`} />
+              <span>{isGenerating ? 'Generating Post Banner & Text...' : '✨ Generate Post Banner & Text'}</span>
+            </button>
+          </div>
         </div>
 
-        {/* Right Column: Live Visual Banner & WhatsApp Text (5 Cols) */}
         <div className="lg:col-span-5 space-y-4">
-          {/* Banner Card Preview */}
-          <div className="bg-white rounded-3xl border border-slate-200 p-4 sm:p-5 shadow-sm space-y-3">
-            <h3 className="text-xs sm:text-sm font-extrabold text-ocean-950 flex items-center justify-between border-b pb-2">
-              <span>Live Post Banner Preview</span>
-              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
-                800x800 PNG
-              </span>
-            </h3>
-
-            <PostCardCanvas
-              templateType={templateType}
-              data={formData}
-              imageUrl={selectedImageUrl}
-            />
-          </div>
-
-          {/* Formatted Text Box & Share Controls */}
-          <div className="bg-white rounded-3xl border border-slate-200 p-4 sm:p-5 shadow-sm space-y-3">
-            <div className="flex items-center justify-between">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-ocean-950 flex items-center gap-1">
-                <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
-                <span>WhatsApp Formatted Text</span>
-              </h4>
-            </div>
-
-            <div className="p-3 rounded-2xl bg-slate-900 text-slate-100 text-xs font-mono whitespace-pre-wrap max-h-44 overflow-y-auto leading-relaxed border border-slate-800">
-              {generateWhatsAppText()}
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+          {!hasGenerated ? (
+            <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm text-center space-y-4 min-h-[420px] flex flex-col items-center justify-center">
+              <div className="w-16 h-16 rounded-2xl bg-gold-50 text-gold-600 border border-gold-200 flex items-center justify-center shadow-inner">
+                <FileImage className="w-8 h-8 text-gold-500" />
+              </div>
+              <div className="space-y-1 max-w-sm">
+                <h3 className="font-extrabold text-slate-800 text-base">
+                  Post Preview & Share Options
+                </h3>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Fill in your trade details on the left and click the <strong className="text-gold-600 font-bold">"Generate"</strong> button to create your custom 800x800 visual image banner and formatted WhatsApp post.
+                </p>
+              </div>
               <button
                 type="button"
-                onClick={handleCopyText}
-                className={`py-3 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer border ${
-                  copiedText
-                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-md'
-                    : 'bg-white text-slate-800 border-slate-300 hover:bg-slate-50'
-                }`}
+                onClick={handleGenerate}
+                disabled={isGenerating}
+                className="px-6 py-3 rounded-xl bg-ocean-950 hover:bg-ocean-900 text-white font-bold text-xs flex items-center gap-2 shadow-md transition-all cursor-pointer"
               >
-                {copiedText ? (
-                  <>
-                    <Check className="w-4 h-4" />
-                    <span>Text Copied!</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-4 h-4 text-ocean-900" />
-                    <span>Copy Text</span>
-                  </>
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={handleShareWhatsApp}
-                className="py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer"
-              >
-                <Share2 className="w-4 h-4" />
-                <span>Share to WhatsApp</span>
+                <Wand2 className="w-4 h-4 text-gold-400" />
+                <span>Generate Now</span>
               </button>
             </div>
-          </div>
+          ) : (
+            <>
+              {shareNotice && (
+                <div className="p-3 rounded-2xl bg-emerald-900 text-emerald-100 text-xs font-bold flex items-center gap-2 shadow-lg border border-emerald-700 animate-bounce">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>{shareNotice}</span>
+                </div>
+              )}
+
+              <div className="bg-white rounded-3xl border border-slate-200 p-4 sm:p-5 shadow-sm space-y-3">
+                <div className="flex items-center justify-between border-b pb-2">
+                  <h3 className="text-xs sm:text-sm font-extrabold text-ocean-950 flex items-center gap-2">
+                    <span>Generated Post Banner</span>
+                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
+                      <Check className="w-3 h-3 text-emerald-600" /> Ready
+                    </span>
+                  </h3>
+                  <span className="text-[10px] font-bold text-slate-400">800x800 PNG</span>
+                </div>
+
+                <PostCardCanvas
+                  templateType={templateType}
+                  data={formData}
+                  imageUrl={selectedImageUrl}
+                  canvasRef={canvasRef}
+                />
+              </div>
+
+              <div className="bg-white rounded-3xl border border-slate-200 p-4 sm:p-5 shadow-sm space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-ocean-950 flex items-center gap-1.5">
+                    <MessageSquare className="w-4 h-4 text-emerald-600" />
+                    <span>WhatsApp Formatted Text</span>
+                  </h4>
+                  {copiedText && (
+                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+                      Copied to Clipboard!
+                    </span>
+                  )}
+                </div>
+
+                <div className="p-3 rounded-2xl bg-slate-900 text-slate-100 text-xs font-mono whitespace-pre-wrap max-h-44 overflow-y-auto leading-relaxed border border-slate-800">
+                  {generateWhatsAppText()}
+                </div>
+
+                <div className="space-y-2.5 pt-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={handleShareImageOnly}
+                      className="py-3 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md transition-all cursor-pointer"
+                    >
+                      <ImageIcon className="w-4 h-4 text-blue-200" />
+                      <span>Share Image Banner</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleShareTextOnly}
+                      className="py-3 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md transition-all cursor-pointer"
+                    >
+                      <MessageSquare className="w-4 h-4 text-emerald-200" />
+                      <span>Share Text (WhatsApp)</span>
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={handleShareBoth}
+                      className="py-3 px-3 rounded-xl bg-ocean-950 hover:bg-ocean-900 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md transition-all cursor-pointer border border-gold-500/30"
+                    >
+                      <Share2 className="w-4 h-4 text-gold-400" />
+                      <span>Share Both (Image + Text)</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleShareDirectGroup}
+                      className="py-3 px-3 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md transition-all cursor-pointer"
+                    >
+                      <Send className="w-4 h-4 text-amber-100" />
+                      <span>Share to EXIM Group</span>
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleCopyText}
+                    className={`w-full py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer border ${
+                      copiedText
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    {copiedText ? (
+                      <>
+                        <Check className="w-4 h-4 text-emerald-600" />
+                        <span>Text Copied to Clipboard!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-4 h-4 text-slate-500" />
+                        <span>Copy Formatted Text</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function KeralaHsnDropdown({ label, value, onChange }) {
+  const isMatched = KERALA_EXPORT_HSN_CODES.some(item => value?.includes(item.code));
+  const [isCustom, setIsCustom] = useState(!isMatched && value !== '');
+
+  return (
+    <div>
+      <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1 text-xs">
+        {label} <span className="text-slate-400 font-normal text-[10px]">(Optional)</span>
+      </label>
+      <div className="space-y-1.5">
+        <select
+          value={isCustom ? 'OTHER_CUSTOM' : (value || '')}
+          onChange={(e) => {
+            if (e.target.value === 'OTHER_CUSTOM') {
+              setIsCustom(true);
+              onChange('');
+            } else {
+              setIsCustom(false);
+              onChange(e.target.value);
+            }
+          }}
+          className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-ocean-950 outline-none text-xs font-medium cursor-pointer"
+        >
+          <option value="">-- Select HSN Code --</option>
+          {KERALA_EXPORT_HSN_CODES.map((item, idx) => (
+            <option key={idx} value={`${item.code} - ${item.title}`}>
+              {item.code} | {item.title}
+            </option>
+          ))}
+          <option value="OTHER_CUSTOM">✏️ Other (Type Custom HSN Code)...</option>
+        </select>
+
+        {isCustom && (
+          <input
+            type="text"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="Type custom HSN Code (e.g. 0904.12)..."
+            className="w-full px-3.5 py-2 rounded-xl border border-gold-400 bg-gold-50/40 focus:bg-white outline-none text-xs font-medium"
+            autoFocus
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function QuantityWithUnitInput({ label, value, onChange, required = false }) {
+  const UNITS = [
+    'Metric Tons (MT)',
+    'Kilograms (Kg)',
+    'Pounds (Lbs)',
+    'Grams (g)',
+    '20ft Container (FCL)',
+    '40ft High Cube (FCL)',
+    'LCL Boxes / Pallets',
+    'Cartons / Boxes',
+    'Pieces / Units'
+  ];
+
+  let initialQty = value || '';
+  let initialUnit = 'Metric Tons (MT)';
+
+  UNITS.forEach(u => {
+    if (typeof value === 'string' && value.includes(u)) {
+      initialQty = value.replace(u, '').trim();
+      initialUnit = u;
+    }
+  });
+
+  const [qtyVal, setQtyVal] = useState(initialQty);
+  const [unitVal, setUnitVal] = useState(initialUnit);
+  const [isCustomUnit, setIsCustomUnit] = useState(!UNITS.includes(initialUnit));
+  const [customUnit, setCustomUnit] = useState(isCustomUnit ? initialUnit : '');
+
+  const updateCombined = (newQty, newUnit) => {
+    setQtyVal(newQty);
+    const finalUnit = newUnit === 'OTHER_CUSTOM' ? customUnit : newUnit;
+    const combined = newQty ? `${newQty} ${finalUnit}`.trim() : '';
+    onChange(combined);
+  };
+
+  return (
+    <div>
+      <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1 text-xs">
+        {required ? '● ' : ''}{label} {required ? '*' : ''}
+      </label>
+      <div className="flex gap-1.5">
+        <input
+          type="text"
+          value={qtyVal}
+          onChange={(e) => updateCombined(e.target.value, unitVal)}
+          placeholder="e.g. 50, 100, 2x 40ft"
+          className="flex-1 min-w-0 px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-ocean-950 outline-none text-xs font-medium"
+        />
+        <select
+          value={isCustomUnit ? 'OTHER_CUSTOM' : unitVal}
+          onChange={(e) => {
+            if (e.target.value === 'OTHER_CUSTOM') {
+              setIsCustomUnit(true);
+              updateCombined(qtyVal, customUnit || 'Units');
+            } else {
+              setIsCustomUnit(false);
+              setUnitVal(e.target.value);
+              updateCombined(qtyVal, e.target.value);
+            }
+          }}
+          className="w-36 px-2.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-ocean-950 outline-none text-xs font-bold cursor-pointer shrink-0"
+        >
+          {UNITS.map((u, idx) => (
+            <option key={idx} value={u}>{u}</option>
+          ))}
+          <option value="OTHER_CUSTOM">✏️ Custom Unit...</option>
+        </select>
+      </div>
+
+      {isCustomUnit && (
+        <input
+          type="text"
+          value={customUnit}
+          onChange={(e) => {
+            setCustomUnit(e.target.value);
+            updateCombined(qtyVal, e.target.value);
+          }}
+          placeholder="Type custom unit (e.g. Barrels, Bags)..."
+          className="w-full mt-1.5 px-3 py-2 rounded-xl border border-gold-400 bg-gold-50/40 text-xs font-medium outline-none"
+        />
+      )}
+    </div>
+  );
+}
+
+function MultiSelectCertificationsInput({ label, value, onChange, placeholder }) {
+  const [customTag, setCustomTag] = useState('');
+
+  const selectedTags = (value || '')
+    .split(',')
+    .map(t => t.trim())
+    .filter(Boolean);
+
+  const toggleTag = (tag) => {
+    let updated;
+    if (selectedTags.includes(tag)) {
+      updated = selectedTags.filter(t => t !== tag);
+    } else {
+      updated = [...selectedTags, tag];
+    }
+    onChange(updated.join(', '));
+  };
+
+  const addCustomTag = () => {
+    const tag = customTag.trim();
+    if (tag && !selectedTags.includes(tag)) {
+      const updated = [...selectedTags, tag];
+      onChange(updated.join(', '));
+      setCustomTag('');
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <label className="block font-bold text-slate-700 uppercase tracking-wider text-xs">
+        ● {label}
+      </label>
+
+      {selectedTags.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 p-2 bg-slate-50 border border-slate-200 rounded-xl">
+          {selectedTags.map((tag, idx) => (
+            <span
+              key={idx}
+              className="px-2.5 py-1 rounded-lg bg-ocean-950 text-gold-400 text-[11px] font-bold flex items-center gap-1.5 shadow-sm"
+            >
+              <span>{tag}</span>
+              <button
+                type="button"
+                onClick={() => toggleTag(tag)}
+                className="hover:text-red-400 font-extrabold cursor-pointer"
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={customTag}
+          onChange={(e) => setCustomTag(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              addCustomTag();
+            }
+          }}
+          placeholder={placeholder || "Type custom certificate/compliance & press Enter..."}
+          className="flex-1 px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-medium focus:border-ocean-950 outline-none"
+        />
+        <button
+          type="button"
+          onClick={addCustomTag}
+          className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs shrink-0 cursor-pointer"
+        >
+          + Add Tag
+        </button>
+      </div>
+
+      <div className="flex flex-wrap gap-1">
+        {COMMON_CERTIFICATIONS.map((cert, idx) => {
+          const isSelected = selectedTags.includes(cert);
+          return (
+            <button
+              key={idx}
+              type="button"
+              onClick={() => toggleTag(cert)}
+              className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer border ${
+                isSelected
+                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
+              }`}
+            >
+              {isSelected ? '✓ ' : '+ '}{cert}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function DropdownWithCustomInput({ label, options, value, onChange, placeholder, required = false }) {
+  const isPreset = options.includes(value);
+  const [isCustomMode, setIsCustomMode] = useState(!isPreset && value !== '');
+
+  return (
+    <div>
+      <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
+        {required ? '● ' : ''}{label} {required ? '*' : ''}
+      </label>
+      <div className="space-y-1.5">
+        <select
+          value={isCustomMode ? 'OTHER_CUSTOM' : value}
+          onChange={(e) => {
+            if (e.target.value === 'OTHER_CUSTOM') {
+              setIsCustomMode(true);
+              onChange('');
+            } else {
+              setIsCustomMode(false);
+              onChange(e.target.value);
+            }
+          }}
+          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-ocean-950 outline-none text-xs font-medium cursor-pointer"
+        >
+          <option value="" disabled>-- Select {label} --</option>
+          {options.map((opt, idx) => (
+            <option key={idx} value={opt}>{opt}</option>
+          ))}
+          <option value="OTHER_CUSTOM">✏️ Other (Type custom value...)</option>
+        </select>
+
+        {isCustomMode && (
+          <input
+            type="text"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={placeholder || `Enter custom ${label.toLowerCase()}...`}
+            className="w-full px-3.5 py-2.5 rounded-xl border border-gold-400 bg-gold-50/40 focus:bg-white focus:border-ocean-950 outline-none text-xs font-medium"
+            autoFocus
+          />
+        )}
       </div>
     </div>
   );
