@@ -636,3 +636,38 @@ export async function updateTradePostStatus(postId, newStatus) {
   return true;
 }
 
+/**
+ * Update trade post visibility ('public' | 'private')
+ */
+export async function updateTradePostVisibility(postId, newVisibility) {
+  if (!postId) return false;
+
+  if (supabase) {
+    try {
+      await supabase
+        .from('trade_posts_all')
+        .update({ visibility: newVisibility })
+        .eq('id', postId);
+    } catch (err) {
+      console.warn(`Update post visibility in Supabase error:`, err);
+    }
+  }
+
+  // Update in LocalStorage
+  const updateLocal = (key) => {
+    const list = JSON.parse(localStorage.getItem(key) || '[]');
+    const updated = list.map(item => {
+      if (item.id === postId || item.id?.toString() === postId?.toString()) {
+        return { ...item, visibility: newVisibility };
+      }
+      return item;
+    });
+    localStorage.setItem(key, JSON.stringify(updated));
+  };
+
+  updateLocal('exim_trade_posts_all');
+  ['posts_buy', 'posts_sell', 'posts_logistics', 'posts_exim_services', 'posts_questions'].forEach(c => updateLocal(`exim_${c}`));
+
+  return true;
+}
+

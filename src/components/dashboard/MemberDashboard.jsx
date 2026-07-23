@@ -20,16 +20,26 @@ import {
   ShoppingBag,
   Store,
   Truck,
-  Briefcase
+  Briefcase,
+  Search,
+  Lock,
+  Globe,
+  Filter,
+  X
 } from 'lucide-react';
-import { fetchAllTradePosts, updateTradePostStatus, signUpWithSupabase, signInWithSupabase, signOutSupabase } from '../../lib/supabase';
+import { fetchAllTradePosts, updateTradePostStatus, updateTradePostVisibility, signUpWithSupabase, signInWithSupabase, signOutSupabase } from '../../lib/supabase';
 import { getLoggedInMember, loginUserWithEmail, registerUserWithEmail, logoutMember, isPostOwner } from '../../lib/memberAuth';
 
 export default function MemberDashboard({ onNavigateToGenerator, onEditPost, onInspectPost }) {
   const [member, setMember] = useState(getLoggedInMember());
   const [tradePosts, setTradePosts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Search & Filter State
   const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'open' | 'fulfilled'
+  const [typeFilter, setTypeFilter] = useState('all'); // 'all' | 'buyer' | 'supplier' | 'logistics' | 'exim_service' | 'question'
+  const [scopeFilter, setScopeFilter] = useState('all'); // 'all' (public community) | 'mine' (my posts)
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Email Sign-Up / Login form state
   const [authMode, setAuthMode] = useState('login'); // 'login' | 'register'
@@ -293,18 +303,54 @@ export default function MemberDashboard({ onNavigateToGenerator, onEditPost, onI
     setTradePosts(prev => prev.map(p => p.id === post.id ? { ...p, status: newStatus } : p));
   };
 
+  const handleToggleVisibility = async (post) => {
+    const currentVis = post.visibility || 'public';
+    const newVis = currentVis === 'private' ? 'public' : 'private';
+    await updateTradePostVisibility(post.id, newVis);
+    setTradePosts(prev => prev.map(p => p.id === post.id ? { ...p, visibility: newVis } : p));
+  };
+
   const handleLogout = () => {
     logoutMember();
     setMember(null);
   };
 
+  // Filtered Posts Logic
   const filteredPosts = tradePosts.filter(p => {
-    if (statusFilter === 'open') return p.status !== 'fulfilled';
-    if (statusFilter === 'fulfilled') return p.status === 'fulfilled';
+    const isMine = isPostOwner(p, member);
+    
+    // Scope filter check
+    if (scopeFilter === 'mine' && !isMine) return false;
+    
+    // Hide private posts of other users
+    if (p.visibility === 'private' && !isMine) return false;
+
+    // Status filter check
+    if (statusFilter === 'open' && p.status === 'fulfilled') return false;
+    if (statusFilter === 'fulfilled' && p.status !== 'fulfilled') return false;
+
+    // Type filter check
+    if (typeFilter !== 'all' && p.template_type !== typeFilter) return false;
+
+    // Search query check
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      const product = (p.product_or_service || p.raw_details?.product || '').toLowerCase();
+      const company = (p.company_name || p.raw_details?.companyName || '').toLowerCase();
+      const contact = (p.contact_name || p.raw_details?.contactName || '').toLowerCase();
+      const location = (p.origin_or_location || p.destination || '').toLowerCase();
+      
+      const matches = product.includes(q) || company.includes(q) || contact.includes(q) || location.includes(q);
+      if (!matches) return false;
+    }
+
     return true;
   });
 
-  const openCount = tradePosts.filter(p => p.status !== 'fulfilled').length;
+  // Overview Counts for 2x2 Grid
+  const totalCount = tradePosts.length;
+  const buyerCount = tradePosts.filter(p => p.template_type === 'buyer').length;
+  const supplierCount = tradePosts.filter(p => p.template_type === 'supplier').length;
   const fulfilledCount = tradePosts.filter(p => p.status === 'fulfilled').length;
 
   return (
@@ -312,7 +358,7 @@ export default function MemberDashboard({ onNavigateToGenerator, onEditPost, onI
       {/* Top Header Card */}
       <div className="p-5 rounded-3xl bg-white border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-ocean-950 text-gold-400 font-extrabold flex items-center justify-center text-lg">
+          <div className="w-12 h-12 rounded-2xl bg-ocean-950 text-gold-400 font-extrabold flex items-center justify-center text-lg shadow-md">
             {member?.name ? member.name.charAt(0).toUpperCase() : 'M'}
           </div>
           <div>
@@ -348,54 +394,120 @@ export default function MemberDashboard({ onNavigateToGenerator, onEditPost, onI
         </div>
       </div>
 
-      {/* Dashboard Overview Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between">
+      {/* Dashboard Overview Metric Cards (Clean 2x2 Grid Layout) */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
+        <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between">
           <div>
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Saved Posts</span>
-            <div className="text-3xl font-black text-ocean-950 mt-1">{tradePosts.length}</div>
+            <span className="text-[10px] sm:text-xs font-extrabold text-slate-400 uppercase tracking-wider block">Total Trade Posts</span>
+            <div className="text-2xl sm:text-3xl font-black text-ocean-950 mt-1">{totalCount}</div>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-ocean-50 text-ocean-950 flex items-center justify-center font-bold">
-            <Share2 className="w-5 h-5" />
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-ocean-50 text-ocean-950 flex items-center justify-center font-bold shrink-0">
+            <Share2 className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
         </div>
 
-        <div 
-          onClick={() => setStatusFilter('open')}
-          className="p-5 rounded-2xl bg-emerald-50/80 border border-emerald-200 shadow-sm flex items-center justify-between cursor-pointer hover:shadow-md transition-all"
-        >
+        <div className="p-4 sm:p-5 rounded-2xl bg-emerald-50/80 border border-emerald-200 shadow-sm flex items-center justify-between">
           <div>
-            <span className="text-xs font-bold text-emerald-800 uppercase tracking-wider">Active Open Leads</span>
-            <div className="text-3xl font-black text-emerald-950 mt-1">{openCount}</div>
+            <span className="text-[10px] sm:text-xs font-extrabold text-emerald-800 uppercase tracking-wider block">Buy Requirements</span>
+            <div className="text-2xl sm:text-3xl font-black text-emerald-950 mt-1">{buyerCount}</div>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-sm">
-            <Clock className="w-5 h-5" />
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-sm shrink-0">
+            <ShoppingBag className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
         </div>
 
-        <div 
-          onClick={() => setStatusFilter('fulfilled')}
-          className="p-5 rounded-2xl bg-slate-900 text-white border border-slate-800 shadow-sm flex items-center justify-between cursor-pointer hover:shadow-md transition-all"
-        >
+        <div className="p-4 sm:p-5 rounded-2xl bg-amber-50/80 border border-amber-200 shadow-sm flex items-center justify-between">
           <div>
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Fulfilled / Closed</span>
-            <div className="text-3xl font-black text-gold-400 mt-1">{fulfilledCount}</div>
+            <span className="text-[10px] sm:text-xs font-extrabold text-amber-800 uppercase tracking-wider block">Supply Offers</span>
+            <div className="text-2xl sm:text-3xl font-black text-amber-950 mt-1">{supplierCount}</div>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-slate-800 text-emerald-400 flex items-center justify-center font-bold">
-            <CheckCircle2 className="w-5 h-5" />
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-amber-600 text-white flex items-center justify-center font-bold shadow-sm shrink-0">
+            <Store className="w-4 h-4 sm:w-5 sm:h-5" />
+          </div>
+        </div>
+
+        <div className="p-4 sm:p-5 rounded-2xl bg-slate-900 text-white border border-slate-800 shadow-sm flex items-center justify-between">
+          <div>
+            <span className="text-[10px] sm:text-xs font-extrabold text-slate-400 uppercase tracking-wider block">Fulfilled / Closed</span>
+            <div className="text-2xl sm:text-3xl font-black text-gold-400 mt-1">{fulfilledCount}</div>
+          </div>
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-800 text-emerald-400 flex items-center justify-center font-bold shrink-0">
+            <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
         </div>
       </div>
 
-      {/* Posts Management Table / List */}
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden space-y-4 p-5">
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-b pb-3">
-          <div>
-            <h2 className="text-base font-black text-ocean-950">My Saved Trade Posts & Templates</h2>
-            <p className="text-xs text-slate-500 font-medium">Manage status, edit parameters, or re-share to WhatsApp groups.</p>
+      {/* Posts Search & Filter Controls Bar */}
+      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-4 sm:p-5 space-y-4">
+        {/* Row 1: Search Input + Scope Pills */}
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+          {/* Search Box */}
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search product, company, supplier, location..."
+              className="w-full pl-10 pr-9 py-2.5 rounded-xl border border-slate-200 focus:border-ocean-950 outline-none text-xs font-medium bg-slate-50 focus:bg-white transition-all"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
 
-          <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-2xl border border-slate-200">
+          {/* Scope Pills: Community vs My Posts */}
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-2xl border border-slate-200 text-xs font-bold shrink-0">
+            <button
+              type="button"
+              onClick={() => setScopeFilter('all')}
+              className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
+                scopeFilter === 'all' ? 'bg-ocean-950 text-gold-400 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Globe className="w-3.5 h-3.5" />
+              <span>Public Leads ({tradePosts.filter(p => (p.visibility || 'public') === 'public' || isPostOwner(p, member)).length})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setScopeFilter('mine')}
+              className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
+                scopeFilter === 'mine' ? 'bg-ocean-950 text-gold-400 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <User className="w-3.5 h-3.5" />
+              <span>My Posts ({tradePosts.filter(p => isPostOwner(p, member)).length})</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Row 2: Type Dropdown & Status Pills */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2 border-t border-slate-100">
+          <div className="flex items-center gap-2 flex-wrap text-xs font-medium">
+            <span className="font-bold text-slate-500 flex items-center gap-1">
+              <Filter className="w-3.5 h-3.5" /> Type:
+            </span>
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-xs font-bold text-ocean-950 outline-none cursor-pointer"
+            >
+              <option value="all">All Post Types</option>
+              <option value="buyer">🛒 BUY Requirements</option>
+              <option value="supplier">🏪 SELL Offers</option>
+              <option value="logistics">🚚 Logistics & Cargo</option>
+              <option value="exim_service">💼 Exim Services</option>
+              <option value="question">❓ Questions</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-2xl border border-slate-200 self-start sm:self-auto">
             {['all', 'open', 'fulfilled'].map(f => (
               <button
                 key={f}
@@ -405,23 +517,26 @@ export default function MemberDashboard({ onNavigateToGenerator, onEditPost, onI
                   statusFilter === f ? 'bg-ocean-950 text-gold-400 shadow-sm' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                {f}
+                {f === 'all' ? 'All Status' : f === 'open' ? '🟢 Open' : '🔴 Fulfilled'}
               </button>
             ))}
           </div>
         </div>
+      </div>
 
+      {/* Posts List */}
+      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden p-4 sm:p-5 space-y-3">
         {filteredPosts.length === 0 ? (
           <div className="p-12 text-center text-slate-400 space-y-3">
             <Share2 className="w-10 h-10 mx-auto text-slate-300" />
-            <p className="font-bold text-sm text-slate-600">No trade posts found in this filter.</p>
+            <p className="font-bold text-sm text-slate-600">No trade posts found matching your search or filters.</p>
             <button
               type="button"
               onClick={onNavigateToGenerator}
               className="px-4 py-2 rounded-xl bg-ocean-950 text-gold-400 font-bold text-xs inline-flex items-center gap-1.5 cursor-pointer"
             >
               <PlusCircle className="w-4 h-4" />
-              <span>Create Your First Trade Post</span>
+              <span>Create New Trade Post</span>
             </button>
           </div>
         ) : (
@@ -430,6 +545,7 @@ export default function MemberDashboard({ onNavigateToGenerator, onEditPost, onI
               const details = post.raw_details || {};
               const isFulfilled = post.status === 'fulfilled';
               const isOwner = isPostOwner(post, member);
+              const isPrivate = (post.visibility || 'public') === 'private';
 
               return (
                 <div 
@@ -447,6 +563,15 @@ export default function MemberDashboard({ onNavigateToGenerator, onEditPost, onI
                       <span className="text-[11px] font-bold text-slate-400 uppercase">
                         {post.template_type}
                       </span>
+                      
+                      {/* Privacy Badge */}
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 ${
+                        isPrivate ? 'bg-amber-100 text-amber-900 border border-amber-300' : 'bg-blue-50 text-blue-800 border border-blue-200'
+                      }`}>
+                        {isPrivate ? <Lock className="w-3 h-3 text-amber-700" /> : <Globe className="w-3 h-3 text-blue-600" />}
+                        <span>{isPrivate ? 'Private' : 'Public'}</span>
+                      </span>
+
                       {isOwner && (
                         <span className="text-[10px] font-bold text-gold-700 bg-gold-50 border border-gold-300 px-2 py-0.5 rounded-full">
                           ⭐ Your Post
@@ -469,6 +594,30 @@ export default function MemberDashboard({ onNavigateToGenerator, onEditPost, onI
                   <div className="flex items-center gap-2 shrink-0 flex-wrap">
                     {isOwner ? (
                       <>
+                        {/* Visibility Option Toggle Button (Public vs Private) */}
+                        <button
+                          type="button"
+                          onClick={() => handleToggleVisibility(post)}
+                          className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer border ${
+                            isPrivate
+                              ? 'bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100'
+                              : 'bg-blue-50 text-blue-900 border-blue-300 hover:bg-blue-100'
+                          }`}
+                          title="Click to toggle Public vs Private visibility"
+                        >
+                          {isPrivate ? (
+                            <>
+                              <Lock className="w-3.5 h-3.5 text-amber-700" />
+                              <span>Private</span>
+                            </>
+                          ) : (
+                            <>
+                              <Globe className="w-3.5 h-3.5 text-blue-600" />
+                              <span>Public</span>
+                            </>
+                          )}
+                        </button>
+
                         {/* Toggle Status Button (Owner Only) */}
                         <button
                           type="button"
@@ -479,7 +628,7 @@ export default function MemberDashboard({ onNavigateToGenerator, onEditPost, onI
                               : 'bg-slate-200 text-slate-800 border-slate-300 hover:bg-slate-300'
                           }`}
                         >
-                          {isFulfilled ? 'Re-open Lead' : 'Mark Fulfilled'}
+                          {isFulfilled ? 'Re-open' : 'Fulfilled'}
                         </button>
 
                         {/* Edit / Prefill Button (Owner Only) */}
@@ -490,13 +639,13 @@ export default function MemberDashboard({ onNavigateToGenerator, onEditPost, onI
                             className="px-3 py-2 rounded-xl bg-ocean-950 text-gold-400 font-bold text-xs flex items-center gap-1.5 cursor-pointer hover:bg-ocean-900 shadow-sm"
                           >
                             <Edit className="w-3.5 h-3.5" />
-                            <span>Edit Details</span>
+                            <span>Edit</span>
                           </button>
                         )}
                       </>
                     ) : (
                       <span className="text-[11px] font-bold text-slate-400 bg-slate-100 border border-slate-200 px-3 py-2 rounded-xl">
-                        🔒 Poster Managed
+                        🔒 Community Member Lead
                       </span>
                     )}
 
