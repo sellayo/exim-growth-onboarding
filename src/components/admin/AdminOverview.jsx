@@ -41,8 +41,8 @@ export default function AdminOverview({ submissions, onNavigateToTable }) {
       transition={{ duration: 0.3 }}
       className="space-y-6"
     >
-      {/* Metric Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Metric Cards 2x2 Grid Layout */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Applications */}
         <div className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-sm flex items-center justify-between">
           <div>
