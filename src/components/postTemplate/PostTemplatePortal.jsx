@@ -1,7 +1,8 @@
 import React, { useState, useRef } from 'react';
 import PostCardCanvas from './PostCardCanvas';
 import { EXIM_COMMODITY_CATALOG, getStockImageUrl } from '../../lib/stockImages';
-import { saveTradePost } from '../../lib/supabase';
+import { saveTradePost, signInWithEmail, signUpWithSupabase, signInWithSupabase } from '../../lib/supabase';
+import { getLoggedInMember, loginUserWithEmail, registerUserWithEmail, logoutMember } from '../../lib/memberAuth';
 import { 
   ShoppingBag, 
   Store, 
@@ -26,7 +27,12 @@ import {
   Send,
   Download,
   CheckCircle2,
-  FileImage
+  FileImage,
+  LogOut,
+  X,
+  ShieldCheck,
+  Lock,
+  Key
 } from 'lucide-react';
 
 const KERALA_EXPORT_HSN_CODES = [
@@ -47,56 +53,60 @@ const KERALA_EXPORT_HSN_CODES = [
   { code: '3301.90', title: 'Spice Extract Oleoresins & Oils' },
   { code: '6802.21', title: 'Granite & Natural Stone Slabs' },
   { code: '1006.30', title: 'Rice (Basmati & Non-Basmati)' },
-  { code: '1701.99', title: 'Refined White Sugar' }
+  { code: '1701.99', title: 'Refined White / Raw Sugar' },
+  { code: '0703.10', title: 'Fresh Onions & Shallots' },
+  { code: '0702.00', title: 'Fresh Tomatoes & Vegetables' }
 ];
 
 const COMMON_CERTIFICATIONS = [
   'FSSAI (Food Safety India)',
-  'ISO 9001:2015 (Quality)',
-  'ISO 22000 / HACCP',
+  'ISO 9001:2015 (Quality Management)',
+  'ISO 22000 / HACCP (Food Safety)',
   'APEDA Registration',
   'Spices Board Certificate (CRES)',
+  'CDB Coconut Development Board',
   'Coir Board Registration',
-  'Coconut Development Board (CDB)',
-  'US FDA Approved',
-  'EU Organic / NPOP Organic',
-  'Halal Certified',
+  'US FDA Registration',
+  'EU Organic Certification',
+  'Halal Certification',
   'Kosher Certified',
-  'GMP (Good Manufacturing)',
-  'SGS Quality Inspection',
+  'GMP Certified (Good Manufacturing)',
+  'SGS Inspection Certificate',
   'Phytosanitary Certificate',
   'Certificate of Origin (e-COO)',
-  'CE Marking (Europe)',
-  'BRCGS Global Standard',
-  'RoHS / REACH Compliant'
+  'CE Marking (European Conformity)'
 ];
 
 const PORT_PRESETS = [
-  'Jebel Ali Port, Dubai (UAE)',
-  'Mundra Port, Gujarat (India)',
   'Cochin Port (Vallarpadam Terminal), Kerala',
-  'Nhava Sheva (JNPT), Mumbai (India)',
-  'Port of Rotterdam (Netherlands)',
-  'Felixstowe Port (UK)',
-  'Singapore Port (Singapore)',
-  'Chittagong Port (Bangladesh)',
-  'Dammam Port (Saudi Arabia)',
-  'Los Angeles Port (USA)',
-  'Hamburg Port (Germany)'
+  'Jebel Ali Port, Dubai (UAE)',
+  'Hamad Port, Doha (Qatar)',
+  'Shuwaikh Port, Kuwait',
+  'Sohar Port, Oman',
+  'Port of Felixstowe / London Gateway (UK)',
+  'Port of Rotterdam, Netherlands (EU)',
+  'Port of Hamburg, Germany',
+  'Port of New York & New Jersey (USA)',
+  'Port of Los Angeles / Long Beach (USA)',
+  'Port of Singapore (SEA Hub)',
+  'Port Klang, Malaysia',
+  'Tutuicorin Port (V.O.Chidambaranar), TN',
+  'Chennai Port, Tamil Nadu',
+  'JNPT / Nhava Sheva, Mumbai'
 ];
 
 const TIMELINE_PRESETS = [
   'Immediate / Next 7 Days',
-  'Next 15 Days',
+  'Within 15 Days',
   'Within 30 Days',
-  'Monthly Contract / Recurring',
-  'Urgent Requirement'
+  'Monthly Contract Shipment',
+  'Spot Buying / Ready Cargo'
 ];
 
 const CONTAINER_PRESETS = [
-  '20ft Standard Container (FCL)',
+  '20ft Standard Dry Container (FCL)',
   '40ft High Cube Container (FCL)',
-  '40ft Reefer Container (Refrigerated)',
+  '40ft Reefer Container (Temperature Controlled)',
   'LCL (Consolidated Parcel)',
   'Air Freight Cargo',
   'Break Bulk / Dry Bulk Vessel'
@@ -114,40 +124,57 @@ const EXIM_SERVICE_PRESETS = [
   'Export Packaging & Palletization'
 ];
 
-export default function PostTemplatePortal({ onExit }) {
+export default function PostTemplatePortal({ onExit, initialData = null }) {
   const [templateType, setTemplateType] = useState('buyer');
   const canvasRef = useRef(null);
+  const [currentPostId] = useState(() => (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : null));
+  const [savedPostId, setSavedPostId] = useState(null);
 
-  const [formData, setFormData] = useState({
-    product: 'Kerala Black Pepper (Whole / Dried)',
-    price: '$6,500 / Metric Ton (FOB)',
-    quantity: '50 Metric Tons (MT)',
-    destination: 'Jebel Ali Port, Dubai (UAE)',
-    timeline: 'Immediate / Next 7 Days',
-    requirements: 'FSSAI (Food Safety India), Spices Board Certificate (CRES), ISO 22000 / HACCP',
+  const initialMember = getLoggedInMember();
+  const [loggedInMember, setLoggedInMember] = useState(initialMember);
 
-    moq: '5 Metric Tons (MT)',
-    location: 'Cochin Port (Vallarpadam Terminal), Kerala',
-    certifications: 'ISO 9001:2015 (Quality), FSSAI (Food Safety India), Phytosanitary Certificate',
+  // Email Sign Up / Login Modal State
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [authMode, setAuthMode] = useState('login'); // 'login' | 'register'
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authConfirmPassword, setAuthConfirmPassword] = useState('');
+  const [authName, setAuthName] = useState('');
+  const [authCompany, setAuthCompany] = useState('');
+  const [authPhone, setAuthPhone] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [authSuccessMsg, setAuthSuccessMsg] = useState('');
 
-    origin: 'Cochin Port (Vallarpadam Terminal), Kerala',
-    container: '40ft High Cube Container (FCL)',
+  const [formData, setFormData] = useState(() => ({
+    product: initialData?.product || 'Kerala Black Pepper (Whole / Dried)',
+    price: initialData?.price || '$6,500 / Metric Ton (FOB)',
+    quantity: initialData?.quantity || '50 Metric Tons (MT)',
+    destination: initialData?.destination || 'Jebel Ali Port, Dubai (UAE)',
+    timeline: initialData?.timeline || 'Immediate / Next 7 Days',
+    requirements: initialData?.requirements || 'FSSAI (Food Safety India), Spices Board Certificate (CRES), ISO 22000 / HACCP',
 
-    serviceType: 'Customs Clearance (CHA)',
-    serviceDetails: 'Need CHA assistance for DGFT export licensing & e-COO documentation.',
-    locationPort: 'Cochin Port (Vallarpadam Terminal), Kerala',
+    moq: initialData?.moq || '5 Metric Tons (MT)',
+    location: initialData?.location || 'Cochin Port (Vallarpadam Terminal), Kerala',
+    certifications: initialData?.certifications || 'ISO 9001:2015 (Quality), FSSAI (Food Safety India), Phytosanitary Certificate',
 
-    problem: 'DGFT Export License & COO Process',
-    context: 'We are starting exports of organic spices from Kerala to Europe and need guidance on Certificate of Origin.',
-    question: 'What is the fastest way to issue e-COO via DGFT portal for EU shipments?',
+    origin: initialData?.origin || 'Cochin Port (Vallarpadam Terminal), Kerala',
+    container: initialData?.container || '40ft High Cube Container (FCL)',
+
+    serviceType: initialData?.serviceType || 'Customs Clearance (CHA)',
+    serviceDetails: initialData?.serviceDetails || 'Need CHA assistance for DGFT export licensing & e-COO documentation.',
+    locationPort: initialData?.locationPort || 'Cochin Port (Vallarpadam Terminal), Kerala',
+
+    problem: initialData?.problem || 'DGFT Export License & COO Process',
+    context: initialData?.context || 'We are starting exports of organic spices from Kerala to Europe and need guidance on Certificate of Origin.',
+    question: initialData?.question || 'What is the fastest way to issue e-COO via DGFT portal for EU shipments?',
 
     // Contact Details
-    companyName: 'EXIM Global Trade Pvt Ltd',
-    contactName: 'Rahul Sharma',
-    contactPhone: '+91 98765 43210',
-    contactEmail: 'trade@eximglobal.com',
-    contactWebsite: 'www.eximglobal.com'
-  });
+    companyName: initialData?.companyName || initialMember?.companyName || 'EXIM Global Trade Pvt Ltd',
+    contactName: initialData?.contactName || initialMember?.name || 'Rahul Sharma',
+    contactPhone: initialData?.contactPhone || initialMember?.phone || '+91 98765 43210',
+    contactEmail: initialData?.contactEmail || initialMember?.email || 'trade@eximglobal.com',
+    contactWebsite: initialData?.contactWebsite || 'www.eximglobal.com'
+  }));
 
   const [searchInputText, setSearchInputText] = useState('Pepper');
   const [selectedImageUrl, setSelectedImageUrl] = useState(EXIM_COMMODITY_CATALOG[2].url);
@@ -158,6 +185,80 @@ export default function PostTemplatePortal({ onExit }) {
   const [copiedText, setCopiedText] = useState(false);
   const [saveStatus, setSaveStatus] = useState('');
   const [shareNotice, setShareNotice] = useState('');
+
+  const handleEmailAuthSubmit = async (e) => {
+    e.preventDefault();
+    setAuthError('');
+    setAuthSuccessMsg('');
+
+    if (!authEmail || !authEmail.includes('@')) {
+      setAuthError('Please enter a valid email address.');
+      return;
+    }
+    if (!authPassword || !authPassword.trim()) {
+      setAuthError('Please enter your password.');
+      return;
+    }
+
+    try {
+      if (authMode === 'register') {
+        if (authPassword.trim().length < 4) {
+          setAuthError('Password must be at least 4 characters long.');
+          return;
+        }
+        if (authPassword !== authConfirmPassword) {
+          setAuthError('Passwords do not match. Please re-enter.');
+          return;
+        }
+
+        const res = await signUpWithSupabase({
+          email: authEmail,
+          password: authPassword,
+          fullName: authName,
+          companyName: authCompany,
+          phone: authPhone
+        });
+
+        if (res.needsVerification) {
+          setAuthSuccessMsg(res.message);
+          return;
+        }
+
+        setLoggedInMember(res.user);
+        setFormData(prev => ({
+          ...prev,
+          contactName: res.user.name || prev.contactName,
+          contactEmail: res.user.email || prev.contactEmail,
+          companyName: res.user.companyName || prev.companyName,
+          contactPhone: res.user.phone || prev.contactPhone
+        }));
+      } else {
+        const user = await signInWithSupabase({
+          email: authEmail,
+          password: authPassword
+        });
+        setLoggedInMember(user);
+        setFormData(prev => ({
+          ...prev,
+          contactName: user.name || prev.contactName,
+          contactEmail: user.email || prev.contactEmail,
+          companyName: user.companyName || prev.companyName,
+          contactPhone: user.phone || prev.contactPhone
+        }));
+      }
+
+      setShowEmailModal(false);
+      setAuthError('');
+    } catch (err) {
+      console.error('Authentication Error:', err);
+      setAuthError(err.message || 'Authentication failed. Please check your credentials.');
+    }
+  };
+
+  const handleMemberLogout = () => {
+    logoutMember();
+    setLoggedInMember(null);
+  };
 
   const handleFieldChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -233,9 +334,9 @@ ${formData.product ? `📦 *Product / Cargo:* ${formData.product}\n` : ''}🛫 *
 
     // Poster & Contact block
     const contacts = [];
-    if (formData.companyName?.trim()) contacts.push(`🏢 ${formData.companyName.trim()}`);
-    if (formData.contactName?.trim()) contacts.push(`👤 ${formData.contactName.trim()}`);
-    if (formData.contactPhone?.trim()) contacts.push(`📞 ${formData.contactPhone.trim()}`);
+    if (formData.companyName?.trim()) contacts.push(`🏢 *Company:* ${formData.companyName.trim()}`);
+    if (formData.contactName?.trim()) contacts.push(`👤 *Contact:* ${formData.contactName.trim()}`);
+    if (formData.contactPhone?.trim()) contacts.push(`📞 *Phone / WA:* ${formData.contactPhone.trim()}`);
     if (formData.contactEmail?.trim()) contacts.push(`✉️ ${formData.contactEmail.trim()}`);
     if (formData.contactWebsite?.trim()) contacts.push(`🌐 ${formData.contactWebsite.trim()}`);
 
@@ -244,9 +345,15 @@ ${formData.product ? `📦 *Product / Cargo:* ${formData.product}\n` : ''}🛫 *
       contactBlock = `\n─────────────────────────────\n` + contacts.join('\n');
     }
 
-    return `${mainBody}${contactBlock}
+    // Attach tracking link ONLY for logged in members
+    const activeId = savedPostId || currentPostId;
+    const trackingBlock = loggedInMember
+      ? `\n─────────────────────────────\n🔗 *Check Live Status & Connect:* ${window.location.origin}/post/${activeId}`
+      : '';
+
+    return `${mainBody}${contactBlock}${trackingBlock}
 ─────────────────────────────
-💬 *DM for more details or reply in EXIM Growth Network*`;
+💬 *DM for details | EXIM Growth Network*`;
   };
 
   const handleGenerate = () => {
@@ -267,13 +374,19 @@ ${formData.product ? `📦 *Product / Cargo:* ${formData.product}\n` : ''}🛫 *
   const persistPostToDB = async () => {
     try {
       setSaveStatus('Saving Details to DB...');
-      await saveTradePost(templateType, formData);
+      const targetId = savedPostId || currentPostId;
+      const res = await saveTradePost(templateType, formData, targetId);
+      if (res && res[0]?.id) {
+        setSavedPostId(res[0].id);
+      }
       setSaveStatus('✅ Details Saved to DB!');
       setTimeout(() => setSaveStatus(''), 3500);
+      return res && res[0] ? res[0] : null;
     } catch (err) {
       console.error('Save to DB error:', err);
       setSaveStatus('⚠️ Saved to LocalStorage');
       setTimeout(() => setSaveStatus(''), 3500);
+      return null;
     }
   };
 
@@ -295,10 +408,14 @@ ${formData.product ? `📦 *Product / Cargo:* ${formData.product}\n` : ''}🛫 *
   const triggerImageDownload = () => {
     const canvas = canvasRef.current || document.querySelector('canvas');
     if (!canvas) return;
-    const link = document.createElement('a');
-    link.download = `EXIM_Trade_Post_${templateType}_${Date.now()}.png`;
-    link.href = canvas.toDataURL('image/png');
-    link.click();
+    try {
+      const link = document.createElement('a');
+      link.download = `EXIM_Trade_Post_${templateType}_${Date.now()}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch (err) {
+      console.warn('Canvas download error:', err);
+    }
   };
 
   const handleShareDirectGroup = async () => {
@@ -314,77 +431,46 @@ ${formData.product ? `📦 *Product / Cargo:* ${formData.product}\n` : ''}🛫 *
     }
 
     setShareNotice('📷 Image downloaded & 📋 text copied! Opening WhatsApp group...');
-    setTimeout(() => setShareNotice(''), 5000);
-    window.open(targetGroupUrl, '_blank');
+    setTimeout(() => {
+      window.open(targetGroupUrl, '_blank');
+      setShareNotice('');
+    }, 1500);
+  };
+
+  const handleShareWhatsAppTextOnly = async () => {
+    await persistPostToDB();
+    const text = generateWhatsAppText();
+    const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+    window.open(waUrl, '_blank');
   };
 
   const handleShareImageOnly = async () => {
     await persistPostToDB();
-    const imageFile = await getCanvasImageFile();
-
-    if (imageFile && navigator.canShare && navigator.canShare({ files: [imageFile] })) {
-      try {
-        await navigator.share({
-          title: 'EXIM Trade Banner',
-          files: [imageFile]
-        });
-        setShareNotice('📷 Image shared successfully!');
-        setTimeout(() => setShareNotice(''), 4000);
-        return;
-      } catch (err) {
-        console.log('Share image cancelled:', err);
-      }
-    }
-
     triggerImageDownload();
-    setShareNotice('📷 Banner image downloaded to your device!');
-    setTimeout(() => setShareNotice(''), 4000);
+    setShareNotice('📷 Banner image downloaded! You can now attach & share it in WhatsApp groups.');
+    setTimeout(() => setShareNotice(''), 3500);
   };
 
   const handleShareTextOnly = async () => {
-    await persistPostToDB();
-    const text = generateWhatsAppText();
-    handleCopyText();
-
-    const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
-    window.open(waUrl, '_blank');
-
-    setShareNotice('💬 Text copied to clipboard & WhatsApp opened!');
-    setTimeout(() => setShareNotice(''), 4000);
+    await handleShareWhatsAppTextOnly();
   };
 
   const handleShareBoth = async () => {
     await persistPostToDB();
-    const text = generateWhatsAppText();
-    const imageFile = await getCanvasImageFile();
-
-    if (imageFile && navigator.canShare && navigator.canShare({ files: [imageFile] })) {
-      try {
-        await navigator.share({
-          title: 'EXIM Growth Trade Post',
-          text: text,
-          files: [imageFile]
-        });
-        setShareNotice('✅ Post shared successfully!');
-        setTimeout(() => setShareNotice(''), 4000);
-        return;
-      } catch (err) {
-        console.log('Native share cancelled:', err);
-      }
-    }
-
     triggerImageDownload();
     handleCopyText();
-
-    setShareNotice('💻 Desktop Info: Image downloaded & Text copied! Attach image in WhatsApp Web & paste text.');
-    setTimeout(() => setShareNotice(''), 6000);
-
+    setShareNotice('📷 Banner downloaded & 📋 text copied! Opening WhatsApp...');
+    const text = generateWhatsAppText();
     const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
-    window.open(waUrl, '_blank');
+    setTimeout(() => {
+      window.open(waUrl, '_blank');
+      setShareNotice('');
+    }, 1200);
   };
 
   return (
     <div className="w-full max-w-6xl mx-auto py-4 sm:py-6 px-3 sm:px-6 space-y-4 sm:space-y-6 font-sans">
+      {/* Header Bar */}
       <div className="p-4 sm:p-5 rounded-3xl bg-white border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <img
@@ -409,16 +495,70 @@ ${formData.product ? `📦 *Product / Cargo:* ${formData.product}\n` : ''}🛫 *
           </div>
         </div>
 
-        {onExit && (
-          <button
-            onClick={onExit}
-            className="self-start sm:self-auto px-3.5 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Back to Main</span>
-          </button>
-        )}
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          {loggedInMember ? (
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-300 px-3 py-1.5 rounded-xl flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                <span>{loggedInMember.name || 'Logged In'}</span>
+              </span>
+              <button
+                type="button"
+                onClick={handleMemberLogout}
+                className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs"
+                title="Logout"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowEmailModal(true)}
+              className="px-3.5 py-2 rounded-xl bg-ocean-950 text-white hover:bg-ocean-900 font-bold text-xs flex items-center gap-2 shadow-sm cursor-pointer border border-gold-500/30"
+            >
+              <Mail className="w-3.5 h-3.5 text-gold-400 shrink-0" />
+              <span>Sign In / Register with Email</span>
+            </button>
+          )}
+
+          {onExit && (
+            <button
+              onClick={onExit}
+              className="px-3.5 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Back</span>
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* WHY CREATE AN ACCOUNT / MEMBER ADVANTAGE BANNER */}
+      {!loggedInMember && (
+        <div className="p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-ocean-950 via-slate-900 to-ocean-950 text-white shadow-lg border border-gold-500/30 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider bg-gold-400 text-ocean-950 rounded-full">
+                ✨ Member Advantage
+              </span>
+              <h3 className="font-extrabold text-sm sm:text-base text-white">Why Create a Free Account on EXIM Growth Network?</h3>
+            </div>
+            <p className="text-xs text-slate-300 leading-relaxed max-w-3xl">
+              Sign up or log in with Email to unlock <strong>Live Status Tracking Links</strong> on your shared WhatsApp posts, <strong>15-second template re-use</strong>, and <strong>direct WhatsApp contact details</strong> for verified buyers & sellers.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowEmailModal(true)}
+            className="px-4 py-3 rounded-2xl bg-gold-400 hover:bg-gold-500 text-ocean-950 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer shrink-0"
+          >
+            <Mail className="w-4 h-4" />
+            <span>Continue with Email</span>
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
         <button
@@ -1070,6 +1210,164 @@ ${formData.product ? `📦 *Product / Cargo:* ${formData.product}\n` : ''}🛫 *
           )}
         </div>
       </div>
+
+      {/* EMAIL SIGN-UP & LOGIN MODAL */}
+      {showEmailModal && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full p-6 space-y-4">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 bg-ocean-950 text-gold-400 rounded-xl flex items-center justify-center font-bold">
+                  <ShieldCheck className="w-5 h-5 text-gold-400" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base text-ocean-950">
+                    {authMode === 'login' ? 'Member Log In' : 'Create Free Member Account'}
+                  </h3>
+                  <p className="text-[11px] text-slate-500">EXIM Growth Network Platform</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setShowEmailModal(false); setAuthError(''); }}
+                className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* TAB SELECTOR: LOGIN VS REGISTER */}
+            <div className="flex rounded-xl bg-slate-100 p-1 border border-slate-200">
+              <button
+                type="button"
+                onClick={() => { setAuthMode('login'); setAuthError(''); }}
+                className={`flex-1 py-2 rounded-lg font-bold text-xs transition-all cursor-pointer ${
+                  authMode === 'login' ? 'bg-ocean-950 text-gold-400 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                🔑 Log In
+              </button>
+              <button
+                type="button"
+                onClick={() => { setAuthMode('register'); setAuthError(''); }}
+                className={`flex-1 py-2 rounded-lg font-bold text-xs transition-all cursor-pointer ${
+                  authMode === 'register' ? 'bg-ocean-950 text-gold-400 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                📝 Register / Sign Up
+              </button>
+            </div>
+
+            {authError && (
+              <div className="p-3 rounded-xl bg-red-50 text-red-700 text-xs font-bold border border-red-200">
+                ⚠️ {authError}
+              </div>
+            )}
+
+            {authSuccessMsg && (
+              <div className="p-4 rounded-xl bg-emerald-50 text-emerald-900 text-xs font-medium border border-emerald-300 space-y-1">
+                <span className="font-extrabold text-emerald-800 text-xs block">📩 Check Your Email Inbox</span>
+                <p>{authSuccessMsg}</p>
+              </div>
+            )}
+
+            <form onSubmit={handleEmailAuthSubmit} className="space-y-3 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Email Address *</label>
+                <input
+                  type="email"
+                  required
+                  value={authEmail}
+                  onChange={(e) => setAuthEmail(e.target.value)}
+                  placeholder="e.g. trader@company.com"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:border-ocean-950 outline-none text-xs font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Password *</label>
+                <input
+                  type="password"
+                  required
+                  value={authPassword}
+                  onChange={(e) => setAuthPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:border-ocean-950 outline-none text-xs font-medium"
+                />
+              </div>
+
+              {authMode === 'register' && (
+                <>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Confirm Password *</label>
+                    <input
+                      type="password"
+                      required
+                      value={authConfirmPassword}
+                      onChange={(e) => setAuthConfirmPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:border-ocean-950 outline-none text-xs font-medium"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Full Name</label>
+                    <input
+                      type="text"
+                      value={authName}
+                      onChange={(e) => setAuthName(e.target.value)}
+                      placeholder="e.g. Rahul Sharma"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:border-ocean-950 outline-none text-xs font-medium"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Company Name</label>
+                    <input
+                      type="text"
+                      value={authCompany}
+                      onChange={(e) => setAuthCompany(e.target.value)}
+                      placeholder="e.g. EXIM Global Trade Pvt Ltd"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:border-ocean-950 outline-none text-xs font-medium"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">WhatsApp / Phone Number</label>
+                    <input
+                      type="tel"
+                      value={authPhone}
+                      onChange={(e) => setAuthPhone(e.target.value)}
+                      placeholder="e.g. +91 98765 43210"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:border-ocean-950 outline-none text-xs font-medium"
+                    />
+                  </div>
+                </>
+              )}
+
+              <button
+                type="submit"
+                className="w-full py-3.5 rounded-2xl bg-gold-400 hover:bg-gold-500 text-ocean-950 font-black text-xs uppercase tracking-wider cursor-pointer shadow-md transition-all mt-2"
+              >
+                {authMode === 'login' ? 'Log In to Account' : 'Create Free Account & Log In'}
+              </button>
+            </form>
+
+            <div className="text-center pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode(authMode === 'login' ? 'register' : 'login');
+                  setAuthError('');
+                }}
+                className="text-xs font-bold text-slate-500 hover:text-ocean-950 cursor-pointer underline"
+              >
+                {authMode === 'login' ? "Don't have an account? Create one here" : 'Already have an account? Log In'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

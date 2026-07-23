@@ -11,20 +11,36 @@ import StepSubmission from './components/StepSubmission';
 import StepSuccess from './components/StepSuccess';
 import AdminPortal from './components/admin/AdminPortal';
 import PostTemplatePortal from './components/postTemplate/PostTemplatePortal';
+import PostDetailView from './components/postTemplate/PostDetailView';
+import MemberDashboard from './components/dashboard/MemberDashboard';
+import MemberSidebar from './components/dashboard/MemberSidebar';
 import { submitOnboardingPayload } from './lib/supabase';
 
 const TOTAL_STEPS = 5;
 
 export default function App() {
-  const [isAdminRoute, setIsAdminRoute] = useState(
-    window.location.pathname.toLowerCase().startsWith('/admin') ||
-    window.location.hash.toLowerCase() === '#admin'
-  );
+  const [pathname, setPathname] = useState(window.location.pathname.toLowerCase());
+  const [hash, setHash] = useState(window.location.hash.toLowerCase());
+  const [editingPostData, setEditingPostData] = useState(null);
 
-  const [isPostTemplateRoute, setIsPostTemplateRoute] = useState(
-    window.location.pathname.toLowerCase().startsWith('/post-template') ||
-    window.location.hash.toLowerCase() === '#post-template'
-  );
+  // Extract post ID if navigating to /post/:postId (ignoring /post-template)
+  const getPostIdFromUrl = () => {
+    if (pathname.startsWith('/post/') && !pathname.startsWith('/post-template')) {
+      const id = pathname.replace('/post/', '').trim();
+      return id || null;
+    }
+    if (hash.startsWith('#post/') && !hash.startsWith('#post-template')) {
+      const id = hash.replace('#post/', '').trim();
+      return id || null;
+    }
+    return null;
+  };
+
+  const currentPostId = getPostIdFromUrl();
+  const isAdminRoute = pathname.startsWith('/admin') || hash === '#admin';
+  const isPostTemplateRoute = pathname.startsWith('/post-template') || hash === '#post-template';
+  const isDashboardRoute = pathname.startsWith('/dashboard') || hash === '#dashboard';
+  const isPostDetailRoute = !!currentPostId;
 
   const [currentStep, setCurrentStep] = useState(0);
 
@@ -46,14 +62,8 @@ export default function App() {
   // Handle URL history / hash changes
   useEffect(() => {
     const handlePopState = () => {
-      setIsAdminRoute(
-        window.location.pathname.toLowerCase().startsWith('/admin') ||
-        window.location.hash.toLowerCase() === '#admin'
-      );
-      setIsPostTemplateRoute(
-        window.location.pathname.toLowerCase().startsWith('/post-template') ||
-        window.location.hash.toLowerCase() === '#post-template'
-      );
+      setPathname(window.location.pathname.toLowerCase());
+      setHash(window.location.hash.toLowerCase());
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
@@ -61,20 +71,35 @@ export default function App() {
 
   const navigateToAdmin = () => {
     window.history.pushState({}, '', '/admin');
-    setIsAdminRoute(true);
-    setIsPostTemplateRoute(false);
+    setPathname('/admin');
   };
 
-  const navigateToPostTemplate = () => {
+  const navigateToPostTemplate = (initialData = null) => {
+    if (initialData) setEditingPostData(initialData);
     window.history.pushState({}, '', '/post-template');
-    setIsPostTemplateRoute(true);
-    setIsAdminRoute(false);
+    setPathname('/post-template');
+  };
+
+  const navigateToDashboard = () => {
+    window.history.pushState({}, '', '/dashboard');
+    setPathname('/dashboard');
+  };
+
+  const navigateToPostDetail = (postId) => {
+    window.history.pushState({}, '', `/post/${postId}`);
+    setPathname(`/post/${postId}`);
   };
 
   const navigateToHome = () => {
     window.history.pushState({}, '', '/');
-    setIsAdminRoute(false);
-    setIsPostTemplateRoute(false);
+    setPathname('/');
+    setHash('');
+  };
+
+  const handleSidebarNavigate = (target) => {
+    if (target === 'dashboard') navigateToDashboard();
+    else if (target === 'generator') navigateToPostTemplate();
+    else if (target === 'home') navigateToHome();
   };
 
   const handleUpdateField = (field, value) => {
@@ -135,7 +160,7 @@ export default function App() {
     setCurrentStep(0);
   };
 
-  // If user navigated to /admin route, render Admin Portal
+  // Route 1: Admin Portal
   if (isAdminRoute) {
     return (
       <div className="min-h-screen bg-slate-100 flex flex-col font-sans selection:bg-gold-500 selection:text-white py-4">
@@ -144,15 +169,44 @@ export default function App() {
     );
   }
 
-  // If user navigated to /post-template route, render WhatsApp Post Template Generator
-  if (isPostTemplateRoute) {
+  // Route 2: Live Trade Post Detail View (Public Verification Link)
+  if (isPostDetailRoute) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col font-sans selection:bg-gold-500 selection:text-white py-4">
-        <PostTemplatePortal onExit={navigateToHome} />
+        <PostDetailView
+          postId={currentPostId}
+          onBackToGenerator={navigateToPostTemplate}
+        />
       </div>
     );
   }
 
+  // Route 3: Member Dashboard
+  if (isDashboardRoute) {
+    return (
+      <MemberSidebar activeTab="dashboard" onNavigate={handleSidebarNavigate}>
+        <MemberDashboard
+          onNavigateToGenerator={navigateToPostTemplate}
+          onEditPost={(postDetails) => navigateToPostTemplate(postDetails)}
+          onInspectPost={(postId) => navigateToPostDetail(postId)}
+        />
+      </MemberSidebar>
+    );
+  }
+
+  // Route 4: WhatsApp Post Template Generator
+  if (isPostTemplateRoute) {
+    return (
+      <MemberSidebar activeTab="generator" onNavigate={handleSidebarNavigate}>
+        <PostTemplatePortal
+          onExit={navigateToHome}
+          initialData={editingPostData}
+        />
+      </MemberSidebar>
+    );
+  }
+
+  // Route 5: Default Onboarding & Landing Page
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans selection:bg-gold-500 selection:text-white">
       {/* Header Navbar */}
@@ -238,6 +292,13 @@ export default function App() {
         <p>© {new Date().getFullYear()} EXIM Growth Network. All rights reserved.</p>
         
         <div className="flex items-center gap-4">
+          <button
+            onClick={navigateToDashboard}
+            className="text-[11px] font-bold text-slate-600 hover:text-ocean-950 cursor-pointer"
+          >
+            <span>📊 Member Dashboard</span>
+          </button>
+          
           <button
             onClick={navigateToPostTemplate}
             className="text-[11px] font-bold text-ocean-950 hover:underline flex items-center gap-1 cursor-pointer"

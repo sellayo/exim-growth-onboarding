@@ -121,12 +121,22 @@ export default function PostCardCanvas({ templateType, data, imageUrl, canvasRef
 
     const targetSrc = imageUrl || '/logo.png';
     const img = new Image();
-    if (!targetSrc.startsWith('data:')) {
+    if (targetSrc.startsWith('data:') || targetSrc.startsWith('blob:')) {
+      img.onload = () => drawAll(img);
+      img.onerror = () => drawAll(null);
+      img.src = targetSrc;
+    } else {
       img.crossOrigin = 'anonymous';
+      img.onload = () => drawAll(img);
+      img.onerror = () => {
+        // Fallback load without crossOrigin
+        const fallbackImg = new Image();
+        fallbackImg.onload = () => drawAll(fallbackImg);
+        fallbackImg.onerror = () => drawAll(null);
+        fallbackImg.src = targetSrc;
+      };
+      img.src = targetSrc;
     }
-    img.onload = () => drawAll(img);
-    img.onerror = () => drawAll(null);
-    img.src = targetSrc;
   };
 
   const renderTextOverlay = (ctx, W, H) => {

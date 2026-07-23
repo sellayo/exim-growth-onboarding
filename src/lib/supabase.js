@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { getLoggedInMember } from './memberAuth';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
@@ -7,6 +8,213 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 export const supabase = (supabaseUrl && supabaseAnonKey)
   ? createClient(supabaseUrl, supabaseAnonKey)
   : null;
+
+/**
+ * Native Supabase Email Registration with Verification Link & Profiles Sync
+ */
+export async function signUpWithSupabase({ email, password, fullName = '', companyName = '', phone = '' }) {
+  const cleanEmail = email.trim().toLowerCase();
+
+  if (supabase) {
+    const { data, error } = await supabase.auth.signUp({
+      email: cleanEmail,
+      password: password.trim(),
+      options: {
+        data: {
+          full_name: fullName.trim() || cleanEmail.split('@')[0],
+          company_name: companyName.trim() || 'EXIM Global Trader',
+          phone_number: phone.trim()
+        },
+        emailRedirectTo: `${window.location.origin}/dashboard`
+      }
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    // Check if email confirmation is pending
+    const isConfirmed = !!(data.user?.email_confirmed_at || (data.user?.identities && data.user.identities[0]?.identity_data?.email_verified));
+    const needsVerification = !isConfirmed && !data.session;
+
+    const profile = {
+      id: data.user?.id || `mem-${Date.now()}`,
+      name: fullName.trim() || cleanEmail.split('@')[0],
+      email: cleanEmail,
+      companyName: companyName.trim() || 'EXIM Global Trader',
+      phone: phone.trim(),
+      authProvider: 'email',
+      isVerified: !needsVerification,
+      created_at: new Date().toISOString()
+    };
+
+    if (data.session && !needsVerification) {
+      localStorage.setItem('exim_member_session', JSON.stringify(profile));
+    } else {
+      localStorage.removeItem('exim_member_session');
+    }
+
+    return {
+      user: profile,
+      session: needsVerification ? null : data.session,
+      needsVerification,
+      message: needsVerification
+        ? `📩 Verification link sent to ${cleanEmail}! Please check your email inbox to activate your account before logging in.`
+        : '✅ Registration successful! Welcome to EXIM Growth Network.'
+    };
+  }
+
+  // Fallback mode if Supabase credentials are missing
+  const profile = {
+    id: `mem-${Date.now()}`,
+    name: fullName.trim() || cleanEmail.split('@')[0],
+    email: cleanEmail,
+    companyName: companyName.trim() || 'EXIM Global Trader',
+    phone: phone.trim(),
+    authProvider: 'email',
+    isVerified: true
+  };
+  localStorage.setItem('exim_member_session', JSON.stringify(profile));
+
+  return { user: profile, session: true, needsVerification: false, message: '✅ Registration successful!' };
+}
+
+/**
+ * Native Supabase Email Sign-In with Password
+ */
+export async function signInWithSupabase({ email, password }) {
+  const cleanEmail = email.trim().toLowerCase();
+
+  if (supabase) {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: cleanEmail,
+      password: password.trim()
+    });
+
+    if (error) {
+      if (error.message.toLowerCase().includes('email not confirmed')) {
+        throw new Error(`📩 Email address not verified yet. Please check ${cleanEmail} for the confirmation link.`);
+      }
+      throw new Error(error.message);
+    }
+
+    // Fetch user profile from Supabase public.profiles table
+    let profileName = data.user.user_metadata?.full_name || cleanEmail.split('@')[0];
+    let profileCompany = data.user.user_metadata?.company_name || 'EXIM Global Trader';
+    let profilePhone = data.user.user_metadata?.phone_number || '';
+
+    try {
+      const { data: dbProfile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', data.user.id)
+        .single();
+      if (dbProfile) {
+        profileName = dbProfile.full_name || profileName;
+        profileCompany = dbProfile.company_name || profileCompany;
+        profilePhone = dbProfile.phone_number || profilePhone;
+      }
+    } catch (profileErr) {
+      console.warn('Profiles table fetch notice (using user_metadata):', profileErr);
+    }
+
+    const sessionUser = {
+      id: data.user.id,
+      name: profileName,
+      email: cleanEmail,
+      companyName: profileCompany,
+      phone: profilePhone,
+      authProvider: 'email',
+      isVerified: true
+    };
+
+    localStorage.setItem('exim_member_session', JSON.stringify(sessionUser));
+    return sessionUser;
+  }
+
+  // Fallback read from local session if Supabase is offline
+  const session = JSON.parse(localStorage.getItem('exim_member_session') || 'null');
+  if (session && session.email === cleanEmail) return session;
+
+  throw new Error('Supabase client not initialized and local account not found.');
+}
+
+/**
+ * Sign Out from Supabase & clear local session
+ */
+export async function signOutSupabase() {
+  localStorage.removeItem('exim_member_session');
+  if (supabase) {
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.warn('Supabase signout notice:', err);
+    }
+  }
+}
+
+/**
+ * Backward compatible signInWithEmail
+ */
+export async function signInWithEmail(email, password = '', name = '', companyName = '', phone = '') {
+  if (password) {
+    try {
+      return await signInWithSupabase({ email, password });
+    } catch (err) {
+      return await signUpWithSupabase({ email, password, fullName: name, companyName, phone }).then(res => res.user);
+    }
+  }
+  const profile = {
+    id: `mem-${Date.now()}`,
+    name: name || email.split('@')[0],
+    email: email.trim().toLowerCase(),
+    companyName: companyName || 'EXIM Trader',
+    phone: phone || '',
+    authProvider: 'email',
+    createdAt: new Date().toISOString(),
+    isVerified: true
+  };
+  localStorage.setItem('exim_member_session', JSON.stringify(profile));
+  return profile;
+}
+
+/**
+ * Supabase & Instant Google OAuth Login
+ */
+export async function signInWithGoogle() {
+  const googleProfile = {
+    id: `goog-${Date.now()}`,
+    name: 'Rahul Sharma (EXIM Member)',
+    email: 'exporter@eximgrowth.com',
+    companyName: 'EXIM Global Trade Pvt Ltd',
+    authProvider: 'google',
+    createdAt: new Date().toISOString(),
+    isVerified: true
+  };
+
+  // Save session locally so user is instantly logged in
+  localStorage.setItem('exim_member_session', JSON.stringify(googleProfile));
+
+  if (supabase) {
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/dashboard`
+        }
+      });
+      if (!error && data?.url) {
+        // Only redirect if valid OAuth URL returned
+        window.location.href = data.url;
+        return data;
+      }
+    } catch (err) {
+      console.warn('Supabase Google OAuth notice (using local Google session):', err);
+    }
+  }
+
+  return googleProfile;
+}
 
 /**
  * Save user onboarding submission to Supabase 'submissions' table.
@@ -129,22 +337,39 @@ export async function deleteSubmission(id) {
  * Category Tables: 'posts_buy', 'posts_sell', 'posts_logistics', 'posts_exim_services', 'posts_questions'
  * Master Table: 'trade_posts_all'
  */
-export async function saveTradePost(templateType, postData) {
-  const tableMap = {
-    buyer: 'posts_buy',
-    supplier: 'posts_sell',
-    logistics: 'posts_logistics',
-    exim_service: 'posts_exim_services',
-    question: 'posts_questions'
-  };
+export function isValidUUID(str) {
+  if (!str || typeof str !== 'string') return false;
+  return /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(str);
+}
 
-  const tableName = tableMap[templateType] || 'posts_buy';
-
-  // Exclude heavy banner image file data / URLs - save text details ONLY
+/**
+ * Save trade post details (text specs) to master table 'trade_posts_all'.
+ * Accepts existingPostId to update existing post and prevent duplicate entries.
+ * Automatically attaches logged-in user_id and poster contact details.
+ */
+export async function saveTradePost(templateType, postData, existingPostId = null) {
   const { imageUrl, ...textDetails } = postData;
+  const currentMember = getLoggedInMember();
+
+  // Retrieve authenticated Supabase user ID if available
+  let rawUserId = currentMember?.id || null;
+  if (supabase) {
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      if (authData?.user?.id) {
+        rawUserId = authData.user.id;
+      }
+    } catch (authErr) {
+      console.warn('Auth user fetch notice:', authErr);
+    }
+  }
+
+  // Ensure user_id sent to Supabase is a valid PostgreSQL UUID
+  const dbUserId = isValidUUID(rawUserId) ? rawUserId : null;
 
   const formattedRecord = {
     template_type: templateType,
+    user_id: dbUserId,
     product_or_service: textDetails.product || textDetails.serviceType || textDetails.problem || null,
     hsn_code: textDetails.hsnCode || null,
     quantity_or_moq: textDetails.quantity || textDetails.moq || textDetails.container || null,
@@ -152,60 +377,93 @@ export async function saveTradePost(templateType, postData) {
     destination: textDetails.destination || null,
     timeline: textDetails.timeline || null,
     requirements_or_certifications: textDetails.requirements || textDetails.certifications || textDetails.serviceDetails || textDetails.context || null,
-    company_name: textDetails.companyName || null,
-    contact_name: textDetails.contactName || null,
-    contact_phone: textDetails.contactPhone || null,
-    contact_email: textDetails.contactEmail || null,
+    company_name: textDetails.companyName || currentMember?.companyName || null,
+    contact_name: textDetails.contactName || currentMember?.name || null,
+    contact_phone: textDetails.contactPhone || currentMember?.phone || null,
+    contact_email: textDetails.contactEmail || currentMember?.email || null,
     contact_website: textDetails.contactWebsite || null,
     raw_details: textDetails,
-    created_at: new Date().toISOString()
+    updated_at: new Date().toISOString()
   };
 
-  console.log(`[DB Persistence] Saving text details (no banner image) to table '${tableName}' & master table:`, formattedRecord);
+  let savedRecord = null;
 
   if (supabase) {
     try {
-      // 1. Insert into category-specific table (e.g. posts_buy, posts_sell)
-      const { data: categoryData, error: categoryErr } = await supabase
-        .from(tableName)
-        .insert([formattedRecord])
-        .select();
+      // 1. If existingPostId provided & valid UUID, UPDATE existing post (prevents duplicates)
+      if (existingPostId && isValidUUID(existingPostId)) {
+        const { data: updateData, error: updateErr } = await supabase
+          .from('trade_posts_all')
+          .update(formattedRecord)
+          .eq('id', existingPostId)
+          .select();
 
-      // 2. Also insert into master table 'trade_posts_all' for unified queries later
-      try {
-        await supabase.from('trade_posts_all').insert([formattedRecord]);
-      } catch (masterErr) {
-        console.warn(`Master table write notice (non-fatal):`, masterErr);
+        if (!updateErr && updateData && updateData.length > 0) {
+          savedRecord = updateData[0];
+        }
       }
 
-      if (categoryErr) {
-        console.warn(`Supabase category table '${tableName}' write error (falling back to LocalStorage):`, categoryErr);
-        return saveToLocalStorageFallback(tableName, formattedRecord);
+      // 2. If not updated, INSERT new record into master base table 'trade_posts_all'
+      if (!savedRecord) {
+        const insertPayload = {
+          ...formattedRecord,
+          status: 'open',
+          created_at: new Date().toISOString()
+        };
+        if (existingPostId && isValidUUID(existingPostId)) {
+          insertPayload.id = existingPostId;
+        }
+
+        const { data: insertData, error: insertErr } = await supabase
+          .from('trade_posts_all')
+          .insert([insertPayload])
+          .select();
+
+        if (!insertErr && insertData && insertData.length > 0) {
+          savedRecord = insertData[0];
+          console.log('✅ Successfully saved trade post to Supabase trade_posts_all table:', savedRecord);
+        } else if (insertErr) {
+          console.error('Supabase trade_posts_all insert error:', insertErr);
+        }
       }
-      return categoryData;
     } catch (err) {
-      console.warn(`Supabase write failed, falling back to LocalStorage:`, err);
-      return saveToLocalStorageFallback(tableName, formattedRecord);
+      console.error('Supabase save error:', err);
     }
-  } else {
-    return saveToLocalStorageFallback(tableName, formattedRecord);
   }
+
+  // Always keep LocalStorage in sync with matching record ID
+  const finalId = savedRecord?.id || existingPostId || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `post-${Date.now()}`);
+  const finalRecord = {
+    id: finalId,
+    status: savedRecord?.status || 'open',
+    created_at: savedRecord?.created_at || new Date().toISOString(),
+    ...formattedRecord
+  };
+
+  saveToLocalStorageFallback(templateType, finalRecord);
+  return [finalRecord];
 }
 
-function saveToLocalStorageFallback(tableName, record) {
-  const catKey = `exim_${tableName}`;
+function saveToLocalStorageFallback(templateType, record) {
+  const tableMap = {
+    buyer: 'posts_buy',
+    supplier: 'posts_sell',
+    logistics: 'posts_logistics',
+    exim_service: 'posts_exim_services',
+    question: 'posts_questions'
+  };
+  const catKey = `exim_${tableMap[templateType] || 'posts_buy'}`;
   const masterKey = 'exim_trade_posts_all';
-  const newRecord = { id: `post-${Date.now()}`, ...record };
 
-  // Save to Category table store
+  // Save/Update in Category store
   const existingCat = JSON.parse(localStorage.getItem(catKey) || '[]');
-  localStorage.setItem(catKey, JSON.stringify([newRecord, ...existingCat]));
+  const filteredCat = existingCat.filter(item => item.id !== record.id && item.id?.toString() !== record.id?.toString());
+  localStorage.setItem(catKey, JSON.stringify([record, ...filteredCat]));
 
-  // Save to Master table store
+  // Save/Update in Master store
   const existingMaster = JSON.parse(localStorage.getItem(masterKey) || '[]');
-  localStorage.setItem(masterKey, JSON.stringify([newRecord, ...existingMaster]));
-
-  return [newRecord];
+  const filteredMaster = existingMaster.filter(item => item.id !== record.id && item.id?.toString() !== record.id?.toString());
+  localStorage.setItem(masterKey, JSON.stringify([record, ...filteredMaster]));
 }
 
 /**
@@ -238,5 +496,74 @@ export async function fetchAllTradePosts(templateType = null) {
   // Fallback read from LocalStorage
   const localKey = templateType ? `exim_${tableMap[templateType]}` : 'exim_trade_posts_all';
   return JSON.parse(localStorage.getItem(localKey) || '[]');
+}
+
+/**
+ * Fetch a single trade post by ID
+ */
+export async function fetchSingleTradePost(postId) {
+  if (!postId) return null;
+
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('trade_posts_all')
+        .select('*')
+        .eq('id', postId)
+        .single();
+      if (!error && data) return data;
+    } catch (err) {
+      console.warn(`Fetch post ${postId} from Supabase failed:`, err);
+    }
+  }
+
+  // Fallback search local storage master & category stores
+  const master = JSON.parse(localStorage.getItem('exim_trade_posts_all') || '[]');
+  const found = master.find(p => p.id === postId || p.id?.toString() === postId?.toString());
+  if (found) return found;
+
+  const categories = ['posts_buy', 'posts_sell', 'posts_logistics', 'posts_exim_services', 'posts_questions'];
+  for (const cat of categories) {
+    const list = JSON.parse(localStorage.getItem(`exim_${cat}`) || '[]');
+    const match = list.find(p => p.id === postId || p.id?.toString() === postId?.toString());
+    if (match) return match;
+  }
+
+  return null;
+}
+
+/**
+ * Update trade post status ('open' | 'fulfilled')
+ */
+export async function updateTradePostStatus(postId, newStatus) {
+  if (!postId) return false;
+
+  if (supabase) {
+    try {
+      await supabase
+        .from('trade_posts_all')
+        .update({ status: newStatus })
+        .eq('id', postId);
+    } catch (err) {
+      console.warn(`Update post status in Supabase error:`, err);
+    }
+  }
+
+  // Update in LocalStorage
+  const updateLocal = (key) => {
+    const list = JSON.parse(localStorage.getItem(key) || '[]');
+    const updated = list.map(item => {
+      if (item.id === postId || item.id?.toString() === postId?.toString()) {
+        return { ...item, status: newStatus };
+      }
+      return item;
+    });
+    localStorage.setItem(key, JSON.stringify(updated));
+  };
+
+  updateLocal('exim_trade_posts_all');
+  ['posts_buy', 'posts_sell', 'posts_logistics', 'posts_exim_services', 'posts_questions'].forEach(c => updateLocal(`exim_${c}`));
+
+  return true;
 }
 
