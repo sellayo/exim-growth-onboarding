@@ -22,14 +22,23 @@ import {
   Briefcase, 
   HelpCircle,
   Copy,
-  Check
+  Check,
+  Sparkles,
+  Unlock
 } from 'lucide-react';
-import { fetchSingleTradePost, updateTradePostStatus, signUpWithSupabase, signInWithSupabase } from '../../lib/supabase';
+import { 
+  fetchSingleTradePost, 
+  updateTradePostStatus, 
+  signUpWithSupabase, 
+  signInWithSupabase,
+  checkPosterCommunityVerification
+} from '../../lib/supabase';
 import { getLoggedInMember, loginUserWithEmail, registerUserWithEmail, isPostOwner } from '../../lib/memberAuth';
 
 export default function PostDetailView({ postId, onBackToGenerator }) {
   const [post, setPost] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [posterVerification, setPosterVerification] = useState('checking'); // 'approved_member' | 'unverified'
   const [member, setMember] = useState(getLoggedInMember());
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState('login'); // 'login' | 'register'
@@ -50,6 +59,10 @@ export default function PostDetailView({ postId, onBackToGenerator }) {
       try {
         const data = await fetchSingleTradePost(postId);
         setPost(data);
+        if (data) {
+          const ver = await checkPosterCommunityVerification(data.contact_email, data.contact_phone);
+          setPosterVerification(ver);
+        }
       } catch (err) {
         console.error('Failed to load post detail:', err);
       } finally {
@@ -166,13 +179,13 @@ export default function PostDetailView({ postId, onBackToGenerator }) {
   const isFulfilled = post.status === 'fulfilled';
 
   return (
-    <div className="w-full max-w-3xl mx-auto py-6 px-4 space-y-6 font-sans">
-      {/* Top Header Controls */}
-      <div className="flex items-center justify-between">
+    <div className="w-full max-w-3xl mx-auto py-4 sm:py-6 px-3 sm:px-4 space-y-4 sm:space-y-6 font-sans">
+      {/* Top Header Controls (Responsive for Mobile) */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
         <button
           type="button"
           onClick={onBackToGenerator}
-          className="px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+          className="w-full sm:w-auto px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4 text-slate-500" />
           <span>Back to Trade Portal</span>
@@ -182,7 +195,7 @@ export default function PostDetailView({ postId, onBackToGenerator }) {
           <button
             type="button"
             onClick={handleCopyLink}
-            className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+            className="flex-1 sm:flex-none px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
           >
             {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
             <span>{copiedLink ? 'Link Copied' : 'Copy Link'}</span>
@@ -191,7 +204,7 @@ export default function PostDetailView({ postId, onBackToGenerator }) {
           <button
             type="button"
             onClick={handleShareWhatsApp}
-            className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-md transition-all cursor-pointer"
+            className="flex-1 sm:flex-none px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md transition-all cursor-pointer"
           >
             <MessageSquare className="w-3.5 h-3.5 fill-current" />
             <span>Share Post</span>
@@ -205,52 +218,58 @@ export default function PostDetailView({ postId, onBackToGenerator }) {
         animate={{ opacity: 1, y: 0 }}
         className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden"
       >
-        {/* LIVE STATUS BANNER */}
-        <div className={`p-4 sm:p-5 flex flex-wrap items-center justify-between gap-3 ${
+        {/* LIVE STATUS BANNER (Responsive Mobile Header) */}
+        <div className={`p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
           isFulfilled 
             ? 'bg-slate-900 text-slate-200 border-b border-slate-800' 
             : 'bg-emerald-950 text-emerald-100 border-b border-emerald-900'
         }`}>
-          <div className="flex items-center gap-3">
-            <span className={`w-3.5 h-3.5 rounded-full ${isFulfilled ? 'bg-red-500' : 'bg-emerald-400 animate-ping'}`} />
+          <div className="flex items-start sm:items-center gap-3">
+            <span className={`w-3.5 h-3.5 rounded-full mt-1 sm:mt-0 shrink-0 ${isFulfilled ? 'bg-red-500' : 'bg-emerald-400 animate-ping'}`} />
             <div>
-              <div className="flex items-center gap-2">
-                <span className="font-extrabold text-xs uppercase tracking-wider">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-extrabold text-xs sm:text-sm uppercase tracking-wider">
                   {isFulfilled ? '🔴 ORDER FULFILLED / CLOSED' : '🟢 LIVE & ACCEPTING QUOTES'}
                 </span>
-                <span className="px-2 py-0.5 text-[10px] font-bold bg-white/10 rounded-full">
+                <span className="px-2 py-0.5 text-[10px] font-bold bg-white/10 rounded-full shrink-0">
                   Verified Lead
                 </span>
               </div>
-              <p className="text-[11px] opacity-80 mt-0.5">
+              <p className="text-[11px] opacity-80 mt-0.5 leading-tight">
                 {isFulfilled ? 'This trade requirement has been fulfilled by the poster.' : 'Active trade requirement on EXIM Growth Network.'}
               </p>
             </div>
           </div>
 
-          {/* Poster Status Toggle Button (Owner Only) */}
+          {/* TOP RIGHT BADGE: Poster Status Toggle (Owner) OR Community Verification Badge */}
           {isPostOwner(post, member) ? (
             <button
               type="button"
               onClick={handleToggleStatus}
               disabled={statusUpdating}
-              className="px-3 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer border border-white/20"
+              className="w-full sm:w-auto px-3.5 py-2 rounded-xl bg-white/15 hover:bg-white/25 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer border border-white/20 shrink-0"
             >
               <Clock className="w-3.5 h-3.5" />
-              <span>{isFulfilled ? 'Mark as Re-opened' : 'Mark as Fulfilled'}</span>
+              <span>{isFulfilled ? 'Re-open Trade Lead' : 'Mark Order as Fulfilled'}</span>
             </button>
+          ) : posterVerification === 'approved_member' ? (
+            <span className="w-full sm:w-auto text-[11px] font-extrabold bg-emerald-500/20 text-emerald-300 px-3.5 py-1.5 rounded-xl border border-emerald-500/40 flex items-center justify-center gap-1.5 shrink-0 shadow-sm">
+              <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>EXIM Approved Community Member</span>
+            </span>
           ) : (
-            <span className="text-[11px] font-bold opacity-80 bg-white/10 px-3 py-1.5 rounded-xl border border-white/15 flex items-center gap-1.5">
-              <span>🔒 Lead Status Managed by Poster</span>
+            <span className="w-full sm:w-auto text-[11px] font-bold bg-white/10 text-slate-200 px-3 py-1.5 rounded-xl border border-white/15 flex items-center justify-center gap-1.5 shrink-0">
+              <ShieldCheck className="w-3.5 h-3.5 text-gold-400 shrink-0" />
+              <span>EXIM Growth Network Trader</span>
             </span>
           )}
         </div>
 
         {/* DETAILS BODY */}
-        <div className="p-6 space-y-6">
+        <div className="p-4 sm:p-6 space-y-5 sm:space-y-6">
           {/* Title & Type */}
           <div>
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2 mb-1.5">
               <span className="px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider bg-ocean-950 text-gold-400 rounded-full">
                 {post.template_type?.toUpperCase()}
               </span>
@@ -264,47 +283,47 @@ export default function PostDetailView({ postId, onBackToGenerator }) {
           </div>
 
           {/* Specs Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-medium">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-xs font-medium">
             {details.price && (
-              <div className="p-4 rounded-2xl bg-emerald-50/80 border border-emerald-200">
+              <div className="p-3.5 sm:p-4 rounded-2xl bg-emerald-50/80 border border-emerald-200">
                 <span className="font-extrabold text-emerald-900 uppercase text-[10px] block mb-0.5">
                   💰 Target / Offering Price
                 </span>
-                <div className="text-base font-black text-emerald-950">{details.price}</div>
+                <div className="text-sm sm:text-base font-black text-emerald-950">{details.price}</div>
               </div>
             )}
 
             {post.quantity_or_moq && (
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
+              <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-50 border border-slate-200">
                 <span className="font-extrabold text-slate-400 uppercase text-[10px] block mb-0.5">
                   ⚖️ Quantity / MOQ
                 </span>
-                <div className="text-sm font-bold text-slate-900">{post.quantity_or_moq}</div>
+                <div className="text-xs sm:text-sm font-bold text-slate-900">{post.quantity_or_moq}</div>
               </div>
             )}
 
             {post.origin_or_location && (
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
+              <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-50 border border-slate-200">
                 <span className="font-extrabold text-slate-400 uppercase text-[10px] block mb-0.5">
                   📍 Origin / Location
                 </span>
-                <div className="text-sm font-bold text-slate-900">{post.origin_or_location}</div>
+                <div className="text-xs sm:text-sm font-bold text-slate-900">{post.origin_or_location}</div>
               </div>
             )}
 
             {post.destination && (
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
+              <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-50 border border-slate-200">
                 <span className="font-extrabold text-slate-400 uppercase text-[10px] block mb-0.5">
                   🏁 Destination Port / Country
                 </span>
-                <div className="text-sm font-bold text-slate-900">{post.destination}</div>
+                <div className="text-xs sm:text-sm font-bold text-slate-900">{post.destination}</div>
               </div>
             )}
           </div>
 
           {/* Requirements & Certifications */}
           {post.requirements_or_certifications && (
-            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-1 text-xs">
+            <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-1 text-xs">
               <span className="font-extrabold text-slate-400 uppercase text-[10px] block">
                 📜 Quality Requirements & Certifications
               </span>
@@ -314,40 +333,46 @@ export default function PostDetailView({ postId, onBackToGenerator }) {
             </div>
           )}
 
-          {/* GATED POSTER CONTACT CARD */}
-          <div className="p-5 rounded-3xl bg-ocean-950 text-white space-y-4 shadow-lg">
-            <div className="flex items-center justify-between border-b border-ocean-800 pb-3">
+          {/* POSTER & VERIFICATION CARD (BLURRED GATED OVERLAY FOR GUESTS) */}
+          <div className="p-4 sm:p-5 rounded-3xl bg-ocean-950 text-white space-y-4 shadow-lg">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-ocean-800 pb-3 gap-2">
               <div className="flex items-center gap-2">
-                <Building className="w-4 h-4 text-gold-400" />
-                <h3 className="font-extrabold text-sm text-gold-400 uppercase tracking-wider">
+                <Building className="w-4 h-4 text-gold-400 shrink-0" />
+                <h3 className="font-extrabold text-xs sm:text-sm text-gold-400 uppercase tracking-wider">
                   Poster & Verification Details
                 </h3>
               </div>
-              <span className="px-2.5 py-0.5 text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-full flex items-center gap-1">
-                <ShieldCheck className="w-3 h-3" /> EXIM Verified Member
-              </span>
+              {posterVerification === 'approved_member' ? (
+                <span className="px-2.5 py-0.5 text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-full flex items-center gap-1 self-start sm:self-auto">
+                  <ShieldCheck className="w-3 h-3 text-emerald-400" /> EXIM Approved Community Member
+                </span>
+              ) : (
+                <span className="px-2.5 py-0.5 text-[10px] font-bold bg-white/10 text-slate-300 border border-white/20 rounded-full flex items-center gap-1 self-start sm:self-auto">
+                  <ShieldCheck className="w-3 h-3 text-gold-400" /> EXIM Verified Trader
+                </span>
+              )}
             </div>
 
             {member ? (
               /* UNLOCKED CONTACT DETAILS FOR LOGGED-IN MEMBERS */
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                 <div>
-                  <span className="text-slate-400 block text-[10px]">COMPANY NAME</span>
+                  <span className="text-slate-400 block text-[10px] font-bold">COMPANY NAME</span>
                   <div className="font-bold text-sm text-white">{post.company_name || 'Verified Company'}</div>
                 </div>
 
                 <div>
-                  <span className="text-slate-400 block text-[10px]">CONTACT PERSON</span>
+                  <span className="text-slate-400 block text-[10px] font-bold">CONTACT PERSON</span>
                   <div className="font-bold text-sm text-white">{post.contact_name || 'Verified Member'}</div>
                 </div>
 
                 <div>
-                  <span className="text-slate-400 block text-[10px]">PHONE / WHATSAPP</span>
+                  <span className="text-slate-400 block text-[10px] font-bold">PHONE / WHATSAPP</span>
                   <div className="font-bold text-emerald-400 text-sm">{post.contact_phone || 'Available'}</div>
                 </div>
 
                 <div>
-                  <span className="text-slate-400 block text-[10px]">EMAIL ADDRESS</span>
+                  <span className="text-slate-400 block text-[10px] font-bold">EMAIL ADDRESS</span>
                   <div className="font-bold text-white text-sm">{post.contact_email || 'N/A'}</div>
                 </div>
 
@@ -366,42 +391,69 @@ export default function PostDetailView({ postId, onBackToGenerator }) {
                 )}
               </div>
             ) : (
-              /* GATED CONTACT TEASER & MEMBER BENEFITS FOR UNAUTHENTICATED GUESTS */
-              <div className="space-y-4 text-center py-2">
-                <div className="flex items-center justify-center gap-2 text-gold-400 text-xs font-bold">
-                  <Lock className="w-4 h-4 text-gold-400 animate-bounce" />
-                  <span>Create a Free Account to Unlock Full Details & Contact Poster</span>
+              /* BLURRED CONTACT PREVIEW + UNLOCK OVERLAY FOR UNAUTHENTICATED GUESTS */
+              <div 
+                onClick={() => setShowAuthModal(true)}
+                className="relative overflow-hidden rounded-2xl bg-ocean-900/90 border border-ocean-800 p-4 cursor-pointer group"
+              >
+                {/* BLURRED PREVIEW OF CONTACT INFO */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs filter blur-sm select-none opacity-35 pointer-events-none transition-all">
+                  <div>
+                    <span className="text-slate-400 block text-[10px] font-bold">COMPANY NAME</span>
+                    <div className="font-bold text-sm text-white">{post.company_name || 'EXIM Global Trader Pvt Ltd'}</div>
+                  </div>
+
+                  <div>
+                    <span className="text-slate-400 block text-[10px] font-bold">CONTACT PERSON</span>
+                    <div className="font-bold text-sm text-white">{post.contact_name || 'Verified Exporter'}</div>
+                  </div>
+
+                  <div>
+                    <span className="text-slate-400 block text-[10px] font-bold">PHONE / WHATSAPP</span>
+                    <div className="font-bold text-emerald-400 text-sm">
+                      {post.contact_phone ? post.contact_phone.slice(0, 4) + '••••••••' : '+91 98••••••••'}
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className="text-slate-400 block text-[10px] font-bold">EMAIL ADDRESS</span>
+                    <div className="font-bold text-white text-sm">
+                      {post.contact_email ? post.contact_email.slice(0, 3) + '••••@••••.com' : 'trader••••@eximgrowth.com'}
+                    </div>
+                  </div>
+
+                  <div className="sm:col-span-2 pt-2">
+                    <div className="w-full py-3 rounded-xl bg-emerald-500 text-white font-extrabold text-xs flex items-center justify-center gap-2">
+                      <MessageSquare className="w-4 h-4 fill-current" />
+                      <span>Contact Poster Direct on WhatsApp</span>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Member Benefits List */}
-                <div className="p-4 rounded-2xl bg-ocean-900/90 border border-ocean-800 text-left text-xs space-y-2">
-                  <span className="font-extrabold text-gold-400 uppercase text-[10px] tracking-wider block">
-                    ✨ Member Privileges & Benefits
-                  </span>
-                  <ul className="space-y-1.5 text-slate-200">
-                    <li className="flex items-center gap-2">
-                      <span className="text-emerald-400 font-bold">✓</span> Direct WhatsApp & Phone access to verified buyers & sellers
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <span className="text-emerald-400 font-bold">✓</span> Live Lead Status Tracking (`OPEN` vs `FULFILLED`)
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <span className="text-emerald-400 font-bold">✓</span> Re-use & Edit saved trade templates in 15 seconds
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <span className="text-emerald-400 font-bold">✓</span> Zero Commission EXIM Trade Network Directory Listing
-                    </li>
-                  </ul>
-                </div>
+                {/* PROMINENT GLASSMORPHISM UNLOCK OVERLAY */}
+                <div className="absolute inset-0 bg-ocean-950/85 backdrop-blur-[3px] z-10 flex flex-col items-center justify-center p-4 text-center space-y-2.5">
+                  <div className="w-10 h-10 rounded-xl bg-gold-400 text-ocean-950 flex items-center justify-center font-extrabold shadow-lg animate-bounce">
+                    <Lock className="w-5 h-5" />
+                  </div>
+                  
+                  <div className="space-y-0.5 max-w-sm">
+                    <h4 className="font-extrabold text-xs sm:text-sm text-gold-400 uppercase tracking-wider">
+                      Unlock Verified Poster Contact Info
+                    </h4>
+                    <p className="text-[11px] text-slate-300 font-medium leading-snug">
+                      Create a free account or log in in 10 seconds to access direct WhatsApp & phone contact details.
+                    </p>
+                  </div>
 
-                <button
-                  type="button"
-                  onClick={() => setShowAuthModal(true)}
-                  className="w-full py-3.5 rounded-2xl bg-gold-400 hover:bg-gold-500 text-ocean-950 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer"
-                >
-                  <Lock className="w-4 h-4" />
-                  <span>Create Free Account / Sign In (10 Seconds)</span>
-                </button>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setShowAuthModal(true); }}
+                    className="px-5 py-2.5 rounded-xl bg-gold-400 hover:bg-gold-500 text-ocean-950 font-black text-xs uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-gold-500/20 transition-all cursor-pointer group-hover:scale-105"
+                  >
+                    <Lock className="w-4 h-4" />
+                    <span>Create Free Account / Sign In to Unlock</span>
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -449,107 +501,123 @@ export default function PostDetailView({ postId, onBackToGenerator }) {
             </div>
 
             {authError && (
-              <div className="p-3 rounded-xl bg-red-50 text-red-700 text-xs font-bold border border-red-200">
-                ⚠️ {authError}
+              <div className="p-3 rounded-xl bg-red-50 text-red-700 text-xs font-bold border border-red-200 flex items-center gap-2">
+                <XCircle className="w-4 h-4 shrink-0" />
+                <span>{authError}</span>
               </div>
             )}
 
             {authSuccessMsg && (
-              <div className="p-4 rounded-xl bg-emerald-50 text-emerald-900 text-xs font-medium border border-emerald-300 text-left space-y-1">
-                <span className="font-extrabold text-emerald-800 text-xs block">📩 Check Your Email Inbox</span>
-                <p>{authSuccessMsg}</p>
+              <div className="p-3 rounded-xl bg-emerald-50 text-emerald-800 text-xs font-bold border border-emerald-200 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+                <span>{authSuccessMsg}</span>
               </div>
             )}
 
-            <form onSubmit={handleQuickLogin} className="space-y-3 text-xs">
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Email Address *</label>
-                <input
-                  type="email"
-                  required
-                  value={loginEmail}
-                  onChange={(e) => setLoginEmail(e.target.value)}
-                  placeholder="e.g. trader@company.com"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:border-ocean-950 outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Password *</label>
-                <input
-                  type="password"
-                  required
-                  value={loginPassword}
-                  onChange={(e) => setLoginPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:border-ocean-950 outline-none"
-                />
-              </div>
-
+            <form onSubmit={handleQuickLogin} className="space-y-3">
               {authMode === 'register' && (
                 <>
                   <div>
-                    <label className="block font-bold text-slate-700 mb-1">Confirm Password *</label>
-                    <input
-                      type="password"
-                      required
-                      value={loginConfirmPassword}
-                      onChange={(e) => setLoginConfirmPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:border-ocean-950 outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1">Your Full Name</label>
+                    <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1 text-[10px]">Full Name</label>
                     <input
                       type="text"
                       value={loginName}
                       onChange={(e) => setLoginName(e.target.value)}
-                      placeholder="e.g. Rahul Kumar"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:border-ocean-950 outline-none"
+                      placeholder="e.g. Rahul Sharma"
+                      className="w-full px-3.5 py-2 rounded-xl border border-slate-200 focus:border-ocean-950 outline-none text-xs font-medium"
                     />
                   </div>
 
                   <div>
-                    <label className="block font-bold text-slate-700 mb-1">Company Name</label>
+                    <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1 text-[10px]">Company Name</label>
                     <input
                       type="text"
                       value={loginCompany}
                       onChange={(e) => setLoginCompany(e.target.value)}
                       placeholder="e.g. EXIM Global Trade Pvt Ltd"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:border-ocean-950 outline-none"
+                      className="w-full px-3.5 py-2 rounded-xl border border-slate-200 focus:border-ocean-950 outline-none text-xs font-medium"
                     />
                   </div>
 
                   <div>
-                    <label className="block font-bold text-slate-700 mb-1">Phone Number / WhatsApp</label>
+                    <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1 text-[10px]">WhatsApp / Phone Number</label>
                     <input
                       type="tel"
                       value={loginPhone}
                       onChange={(e) => setLoginPhone(e.target.value)}
                       placeholder="+91 98765 43210"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:border-ocean-950 outline-none"
+                      className="w-full px-3.5 py-2 rounded-xl border border-slate-200 focus:border-ocean-950 outline-none text-xs font-medium"
                     />
                   </div>
                 </>
               )}
 
+              <div>
+                <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1 text-[10px]">Email Address</label>
+                <input
+                  type="email"
+                  value={loginEmail}
+                  onChange={(e) => setLoginEmail(e.target.value)}
+                  placeholder="exporter@eximgrowth.com"
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 focus:border-ocean-950 outline-none text-xs font-medium"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1 text-[10px]">Password</label>
+                <input
+                  type="password"
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 focus:border-ocean-950 outline-none text-xs font-medium"
+                  required
+                />
+              </div>
+
+              {authMode === 'register' && (
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1 text-[10px]">Confirm Password</label>
+                  <input
+                    type="password"
+                    value={loginConfirmPassword}
+                    onChange={(e) => setLoginConfirmPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 focus:border-ocean-950 outline-none text-xs font-medium"
+                    required
+                  />
+                </div>
+              )}
+
               <button
                 type="submit"
-                className="w-full py-3.5 rounded-xl bg-gold-400 hover:bg-gold-500 text-ocean-950 font-black text-xs uppercase tracking-wider cursor-pointer shadow-md mt-1"
+                className="w-full py-3 rounded-xl bg-gold-400 hover:bg-gold-500 text-ocean-950 font-black text-xs uppercase tracking-wider cursor-pointer shadow-md transition-all mt-1"
               >
-                {authMode === 'login' ? 'Log In & Unlock Contacts' : 'Create Account & Unlock Contacts'}
+                {authMode === 'login' ? 'Log In & View Details' : 'Create Free Account & View Details'}
               </button>
             </form>
 
-            <button
-              type="button"
-              onClick={() => { setShowAuthModal(false); setAuthError(''); }}
-              className="w-full text-center text-xs text-slate-400 hover:text-slate-600 font-bold cursor-pointer"
-            >
-              Cancel
-            </button>
+            <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode(authMode === 'login' ? 'register' : 'login');
+                  setAuthError('');
+                }}
+                className="text-xs font-bold text-slate-500 hover:text-ocean-950 cursor-pointer underline"
+              >
+                {authMode === 'login' ? "Don't have an account? Create one" : 'Already registered? Log In'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setShowAuthModal(false); setAuthError(''); }}
+                className="text-xs font-bold text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
           </motion.div>
         </div>
       )}

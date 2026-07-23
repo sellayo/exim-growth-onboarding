@@ -533,6 +533,51 @@ export async function fetchSingleTradePost(postId) {
 }
 
 /**
+ * Check if poster is an approved EXIM Community Member (matching submissions/profiles)
+ */
+export async function checkPosterCommunityVerification(email, phone) {
+  if (!email && !phone) return 'unverified';
+
+  const cleanEmail = email ? email.trim().toLowerCase() : '';
+  const cleanPhone = phone ? phone.replace(/[^0-9]/g, '').slice(-10) : '';
+
+  if (supabase) {
+    try {
+      const { data: subs, error: subErr } = await supabase
+        .from('submissions')
+        .select('status, email, phone_number');
+
+      if (!subErr && subs && subs.length > 0) {
+        const isApproved = subs.some(s => {
+          const sEmail = s.email ? s.email.trim().toLowerCase() : '';
+          const sPhone = s.phone_number ? s.phone_number.replace(/[^0-9]/g, '').slice(-10) : '';
+          const emailMatched = cleanEmail && sEmail && sEmail === cleanEmail;
+          const phoneMatched = cleanPhone && sPhone && (sPhone.includes(cleanPhone) || cleanPhone.includes(sPhone));
+          return (emailMatched || phoneMatched) && s.status === 'approved';
+        });
+
+        if (isApproved) return 'approved_member';
+      }
+    } catch (err) {
+      console.warn('Poster verification check notice:', err);
+    }
+  }
+
+  // Local storage fallback check
+  const localSubs = JSON.parse(localStorage.getItem('exim_submissions') || '[]');
+  const foundLocal = localSubs.find(s => {
+    const sEmail = s.email ? s.email.trim().toLowerCase() : '';
+    const sPhone = s.phone_number ? s.phone_number.replace(/[^0-9]/g, '').slice(-10) : '';
+    const emailMatched = cleanEmail && sEmail && sEmail === cleanEmail;
+    const phoneMatched = cleanPhone && sPhone && (sPhone.includes(cleanPhone) || cleanPhone.includes(sPhone));
+    return (emailMatched || phoneMatched) && (s.status === 'approved' || s.isApproved);
+  });
+
+  if (foundLocal) return 'approved_member';
+  return 'unverified';
+}
+
+/**
  * Update trade post status ('open' | 'fulfilled')
  */
 export async function updateTradePostStatus(postId, newStatus) {
