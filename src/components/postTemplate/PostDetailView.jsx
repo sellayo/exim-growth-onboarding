@@ -226,14 +226,12 @@ export default function PostDetailView({ postId, onBackToGenerator }) {
         }`}>
           <div className="flex items-start sm:items-center gap-3">
             <span className="relative flex h-3.5 w-3.5 shrink-0 mt-0.5 sm:mt-0">
-              {isFulfilled ? (
-                <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-red-500"></span>
-              ) : (
-                <>
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-400"></span>
-                </>
-              )}
+              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                isFulfilled ? 'bg-red-400' : 'bg-emerald-400'
+              }`}></span>
+              <span className={`relative inline-flex rounded-full h-3.5 w-3.5 ${
+                isFulfilled ? 'bg-red-500' : 'bg-emerald-400'
+              }`}></span>
             </span>
             <div>
               <div className="flex items-center gap-2">
@@ -339,13 +337,21 @@ export default function PostDetailView({ postId, onBackToGenerator }) {
             </div>
           )}
 
-          {/* POSTER & VERIFICATION CARD (BLURRED GATED OVERLAY FOR GUESTS) */}
+          {/* POSTER CONTACT CARD (BLURRED GATED OVERLAY FOR GUESTS) */}
           <div className="p-4 sm:p-5 rounded-3xl bg-ocean-950 text-white space-y-4 shadow-lg">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-ocean-800 pb-3 gap-2">
               <div className="flex items-center gap-2">
                 <Building className="w-4 h-4 text-gold-400 shrink-0" />
                 <h3 className="font-extrabold text-xs sm:text-sm text-gold-400 uppercase tracking-wider">
-                  Poster & Verification Details
+                  {post.template_type === 'buyer' 
+                    ? 'BUYER CONTACT DETAILS' 
+                    : post.template_type === 'supplier' 
+                    ? 'SUPPLIER CONTACT DETAILS' 
+                    : post.template_type === 'logistics' 
+                    ? 'LOGISTICS PROVIDER DETAILS' 
+                    : post.template_type === 'exim_service' 
+                    ? 'EXIM SERVICE PROVIDER DETAILS' 
+                    : 'POSTER CONTACT DETAILS'}
                 </h3>
               </div>
               {posterVerification === 'approved_member' ? (
@@ -444,7 +450,7 @@ export default function PostDetailView({ postId, onBackToGenerator }) {
                   
                   <div className="space-y-0.5 max-w-sm">
                     <h4 className="font-extrabold text-xs sm:text-sm text-gold-400 uppercase tracking-wider">
-                      Unlock Verified Poster Contact Info
+                      LOG IN TO VIEW CONTACT DETAILS
                     </h4>
                     <p className="text-[11px] text-slate-300 font-medium leading-snug">
                       Create a free account or log in in 10 seconds to access direct WhatsApp & phone contact details.
@@ -457,7 +463,7 @@ export default function PostDetailView({ postId, onBackToGenerator }) {
                     className="px-5 py-2.5 rounded-xl bg-gold-400 hover:bg-gold-500 text-ocean-950 font-black text-xs uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-gold-500/20 transition-all cursor-pointer group-hover:scale-105"
                   >
                     <Lock className="w-4 h-4" />
-                    <span>Create Free Account / Sign In to Unlock</span>
+                    <span>LOG IN / SIGN UP TO VIEW CONTACT DETAILS</span>
                   </button>
                 </div>
               </div>
