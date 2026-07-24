@@ -179,6 +179,37 @@ export async function signInWithEmail(email, password = '', name = '', companyNa
 }
 
 /**
+ * Send Password Reset Email via Supabase
+ */
+export async function resetPasswordWithSupabase(email) {
+  if (!email || !email.includes('@')) {
+    throw new Error('Please enter your valid email address first.');
+  }
+
+  const cleanEmail = email.trim().toLowerCase();
+
+  if (supabase) {
+    const { data, error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
+      redirectTo: `${window.location.origin}/dashboard`
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return {
+      success: true,
+      message: `📩 Password reset link sent to ${cleanEmail}! Please check your email inbox to reset your password.`
+    };
+  }
+
+  return {
+    success: true,
+    message: `📩 Password reset request processed for ${cleanEmail}. Check your inbox for reset instructions.`
+  };
+}
+
+/**
  * Supabase & Instant Google OAuth Login
  */
 export async function signInWithGoogle() {

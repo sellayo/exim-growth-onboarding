@@ -16,7 +16,8 @@ import {
   Sparkles,
   BarChart3,
   Layers,
-  ArrowRight
+  ArrowRight,
+  Lock
 } from 'lucide-react';
 import { getLoggedInMember, logoutMember } from '../../lib/memberAuth';
 import { signOutSupabase } from '../../lib/supabase';
@@ -166,6 +167,7 @@ export default function MemberSidebar({ children, activeTab, onNavigate }) {
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = activeTab === item.id;
+                const isGated = !member && (item.id === 'dashboard' || item.id === 'analytics' || item.id === 'profile');
                 return (
                   <button
                     key={item.id}
@@ -181,6 +183,12 @@ export default function MemberSidebar({ children, activeTab, onNavigate }) {
                       <Icon className={`w-4 h-4 ${isActive ? 'text-ocean-950' : 'text-gold-400'}`} />
                       <span>{item.label}</span>
                     </div>
+                    {isGated && (
+                      <span className="px-2 py-0.5 rounded-full bg-gold-500/20 text-gold-400 border border-gold-500/30 text-[10px] font-bold flex items-center gap-1">
+                        <Lock className="w-3 h-3" />
+                        <span>Member</span>
+                      </span>
+                    )}
                   </button>
                 );
               })}
@@ -291,12 +299,13 @@ export default function MemberSidebar({ children, activeTab, onNavigate }) {
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
+            const isGated = !member && (item.id === 'dashboard' || item.id === 'analytics' || item.id === 'profile');
             return (
               <button
                 key={item.id}
                 type="button"
                 onClick={item.onClick}
-                title={isCollapsed ? item.label : undefined}
+                title={isCollapsed ? (isGated ? `${item.label} (Log In Required)` : item.label) : undefined}
                 className={`w-full p-3 rounded-2xl text-xs font-extrabold flex items-center transition-all cursor-pointer group ${
                   isCollapsed ? 'justify-center' : 'justify-between'
                 } ${
@@ -313,6 +322,15 @@ export default function MemberSidebar({ children, activeTab, onNavigate }) {
                   </div>
                   {!isCollapsed && <span>{item.label}</span>}
                 </div>
+
+                {!isCollapsed && isGated && (
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 ${
+                    isActive ? 'bg-ocean-950/20 text-ocean-950' : 'bg-gold-500/20 text-gold-400 border border-gold-500/30 text-gold-400'
+                  }`}>
+                    <Lock className="w-3 h-3" />
+                    <span>Member</span>
+                  </span>
+                )}
               </button>
             );
           })}

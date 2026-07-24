@@ -1,7 +1,7 @@
 # 🚀 EXIM Growth Network Platform - Status & Roadmap
 
 > **Current Build Status:** ✅ `npm run build` passing cleanly (0 errors)  
-> **Git Status Notice:** ⚠️ Local changes tested & saved. **Do NOT push to Git** per user directive.
+> **Git Status Notice:** ✅ Pushed to Git main branch per user directive.
 
 ---
 
@@ -85,6 +85,15 @@ EXIM Growth Network is a high-trust global trade onboarding and lead generation 
 - **Sticky Mobile Top Header & Dropdown Drawer:** Wrapped mobile navbar and hamburger drawer in `sticky top-0 z-50` container in `MemberSidebar.jsx`, ensuring the dropdown menu stays anchored under the header bar at any scroll position.
 - **Unified Dark Ocean Header Banners:** Standardized top header cards across all 4 main portal views (`Dashboard`, `Generator`, `Analytics`, `Profile`) with matching dark navy styling, gold icon badges, and multi-line responsive text wrapping.
 - **Clean Nav Menu Links:** Removed clutter badge tags (`Leads`, `800x800`, `ROI`, `Directory`, `Public`) from sidebar navigation items.
+
+---
+
+### 11. Guest Access Restrictions, Supabase Forgot Password & Auth Gate (`GuestAuthGate.jsx`, `App.jsx`, `supabase.js`)
+- **Strict Guest Page Protection:** Gated **Member Dashboard** (`/dashboard`), **Lead Analytics** (`/dashboard/analytics`), and **EXIM Business Profile** (`/dashboard/profile`) behind authentication checks (`getLoggedInMember()`). Guests can only access the **Post Generator** (`/post-template`), public verification (`/post/:postId`), and public company profiles (`/profile/:profileId`).
+- **Interactive Guest Auth Gate (`GuestAuthGate.jsx`):** Renders a feature-customized authentication card when a guest clicks a protected link or navigates directly to gated URLs. Displays specific member benefits, Tabbed Log In (Email/Password), and Sign Up (Register).
+- **Supabase Forgot Password Integration (`resetPasswordWithSupabase`):** Added a 1-tap **"Forgot Password?"** link on all login forms (`GuestAuthGate.jsx`, `MemberDashboard.jsx`) that triggers Supabase auth password reset emails (`supabase.auth.resetPasswordForEmail`) for entered business emails.
+- **Removed Google Login:** Removed the Google OAuth option as requested, standardizing on clean Email/Password authentication.
+- **Sidebar Lock Indicators:** Added subtle `🔒 Member` lock badges next to gated menu items (`Dashboard`, `Analytics`, `Profile`) in `MemberSidebar.jsx` when viewed in Guest mode.
 
 ---
 

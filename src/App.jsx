@@ -17,7 +17,9 @@ import MemberSidebar from './components/dashboard/MemberSidebar';
 import AnalyticsView from './components/dashboard/AnalyticsView';
 import MemberProfileView from './components/dashboard/MemberProfileView';
 import PublicProfileView from './components/profile/PublicProfileView';
+import GuestAuthGate from './components/auth/GuestAuthGate';
 import { submitOnboardingPayload } from './lib/supabase';
+import { getLoggedInMember } from './lib/memberAuth';
 
 const TOTAL_STEPS = 5;
 
@@ -25,6 +27,20 @@ export default function App() {
   const [pathname, setPathname] = useState(window.location.pathname.toLowerCase());
   const [hash, setHash] = useState(window.location.hash.toLowerCase());
   const [editingPostData, setEditingPostData] = useState(null);
+  const [member, setMember] = useState(getLoggedInMember());
+
+  // Sync member authentication state dynamically across tabs & windows
+  useEffect(() => {
+    const checkMember = () => {
+      setMember(getLoggedInMember());
+    };
+    window.addEventListener('storage', checkMember);
+    const interval = setInterval(checkMember, 1000);
+    return () => {
+      window.removeEventListener('storage', checkMember);
+      clearInterval(interval);
+    };
+  }, []);
 
   // Extract post ID if navigating to /post/:postId (ignoring /post-template)
   const getPostIdFromUrl = () => {
@@ -231,11 +247,19 @@ export default function App() {
   if (isDashboardRoute) {
     return (
       <MemberSidebar activeTab="dashboard" onNavigate={handleSidebarNavigate}>
-        <MemberDashboard
-          onNavigateToGenerator={navigateToPostTemplate}
-          onEditPost={(postDetails) => navigateToPostTemplate(postDetails)}
-          onInspectPost={(postId) => navigateToPostDetail(postId)}
-        />
+        {member ? (
+          <MemberDashboard
+            onNavigateToGenerator={navigateToPostTemplate}
+            onEditPost={(postDetails) => navigateToPostTemplate(postDetails)}
+            onInspectPost={(postId) => navigateToPostDetail(postId)}
+          />
+        ) : (
+          <GuestAuthGate
+            targetFeature="dashboard"
+            onAuthSuccess={(user) => setMember(user)}
+            onNavigateToGenerator={navigateToPostTemplate}
+          />
+        )}
       </MemberSidebar>
     );
   }
@@ -244,10 +268,18 @@ export default function App() {
   if (isAnalyticsRoute) {
     return (
       <MemberSidebar activeTab="analytics" onNavigate={handleSidebarNavigate}>
-        <AnalyticsView
-          onInspectPost={(postId) => navigateToPostDetail(postId)}
-          onNavigateToGenerator={navigateToPostTemplate}
-        />
+        {member ? (
+          <AnalyticsView
+            onInspectPost={(postId) => navigateToPostDetail(postId)}
+            onNavigateToGenerator={navigateToPostTemplate}
+          />
+        ) : (
+          <GuestAuthGate
+            targetFeature="analytics"
+            onAuthSuccess={(user) => setMember(user)}
+            onNavigateToGenerator={navigateToPostTemplate}
+          />
+        )}
       </MemberSidebar>
     );
   }
@@ -256,7 +288,15 @@ export default function App() {
   if (isMemberProfileEditRoute || (pathname.includes('profile') && !isPublicProfileRoute)) {
     return (
       <MemberSidebar activeTab="profile" onNavigate={handleSidebarNavigate}>
-        <MemberProfileView />
+        {member ? (
+          <MemberProfileView />
+        ) : (
+          <GuestAuthGate
+            targetFeature="profile"
+            onAuthSuccess={(user) => setMember(user)}
+            onNavigateToGenerator={navigateToPostTemplate}
+          />
+        )}
       </MemberSidebar>
     );
   }

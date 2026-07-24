@@ -30,7 +30,7 @@ import {
   BarChart3,
   TrendingUp
 } from 'lucide-react';
-import { fetchAllTradePosts, updateTradePostStatus, updateTradePostVisibility, signUpWithSupabase, signInWithSupabase, signOutSupabase } from '../../lib/supabase';
+import { fetchAllTradePosts, updateTradePostStatus, updateTradePostVisibility, signUpWithSupabase, signInWithSupabase, signOutSupabase, resetPasswordWithSupabase } from '../../lib/supabase';
 import { getLoggedInMember, loginUserWithEmail, registerUserWithEmail, logoutMember, isPostOwner } from '../../lib/memberAuth';
 
 export default function MemberDashboard({ onNavigateToGenerator, onEditPost, onInspectPost }) {
@@ -105,6 +105,24 @@ export default function MemberDashboard({ onNavigateToGenerator, onEditPost, onI
     } catch (err) {
       console.error('Authentication Error:', err);
       setLoginError(err.message || 'Authentication failed. Please check your credentials.');
+    }
+  };
+
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    setLoginError('');
+    setAuthSuccessMsg('');
+
+    if (!loginEmail || !loginEmail.includes('@')) {
+      setLoginError('Please enter your valid email address above first.');
+      return;
+    }
+
+    try {
+      const res = await resetPasswordWithSupabase(loginEmail);
+      setAuthSuccessMsg(res.message);
+    } catch (err) {
+      setLoginError(err.message || 'Failed to send password reset email.');
     }
   };
 
@@ -224,7 +242,18 @@ export default function MemberDashboard({ onNavigateToGenerator, onEditPost, onI
             </div>
 
             <div>
-              <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1 text-[11px]">Password *</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block font-bold text-slate-700 uppercase tracking-wider text-[11px]">Password *</label>
+                {authMode === 'login' && (
+                  <button
+                    type="button"
+                    onClick={handleForgotPassword}
+                    className="text-[11px] font-bold text-ocean-950 hover:underline cursor-pointer"
+                  >
+                    Forgot Password?
+                  </button>
+                )}
+              </div>
               <input
                 type="password"
                 required
