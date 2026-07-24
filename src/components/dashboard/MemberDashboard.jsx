@@ -25,7 +25,10 @@ import {
   Lock,
   Globe,
   Filter,
-  X
+  X,
+  MousePointerClick,
+  BarChart3,
+  TrendingUp
 } from 'lucide-react';
 import { fetchAllTradePosts, updateTradePostStatus, updateTradePostVisibility, signUpWithSupabase, signInWithSupabase, signOutSupabase } from '../../lib/supabase';
 import { getLoggedInMember, loginUserWithEmail, registerUserWithEmail, logoutMember, isPostOwner } from '../../lib/memberAuth';
@@ -120,6 +123,15 @@ export default function MemberDashboard({ onNavigateToGenerator, onEditPost, onI
   useEffect(() => {
     if (member) {
       loadMemberPosts();
+
+      // Auto-reload stats when tab regains focus or history state changes
+      const handleFocus = () => loadMemberPosts();
+      window.addEventListener('focus', handleFocus);
+      window.addEventListener('popstate', handleFocus);
+      return () => {
+        window.removeEventListener('focus', handleFocus);
+        window.removeEventListener('popstate', handleFocus);
+      };
     }
   }, [member]);
 
@@ -347,92 +359,118 @@ export default function MemberDashboard({ onNavigateToGenerator, onEditPost, onI
     return true;
   });
 
-  // Overview Counts for 2x2 Grid
-  const totalCount = tradePosts.length;
-  const buyerCount = tradePosts.filter(p => p.template_type === 'buyer').length;
-  const supplierCount = tradePosts.filter(p => p.template_type === 'supplier').length;
-  const fulfilledCount = tradePosts.filter(p => p.status === 'fulfilled').length;
+  // Overview Counts & Analytics Metrics
+  const myPosts = tradePosts.filter(p => isPostOwner(p, member));
+  const activeSet = scopeFilter === 'mine' ? myPosts : tradePosts;
+
+  const totalCount = activeSet.length;
+  const buyerCount = activeSet.filter(p => p.template_type === 'buyer').length;
+  const supplierCount = activeSet.filter(p => p.template_type === 'supplier').length;
+  const fulfilledCount = activeSet.filter(p => p.status === 'fulfilled').length;
+
+  // View & Click Analytics (Strictly tracking BUY Requirements & SUPPLY Offers)
+  const trackedTradeLeads = activeSet.filter(p => p.template_type === 'buyer' || p.template_type === 'supplier');
+  const totalViews = trackedTradeLeads.reduce((acc, p) => acc + (Number(p.views_count) || 0), 0);
+  const totalClicks = trackedTradeLeads.reduce((acc, p) => acc + (Number(p.clicks_count) || 0), 0);
+  const overallCTR = totalViews > 0 ? ((totalClicks / totalViews) * 100).toFixed(1) : '0.0';
 
   return (
-    <div className="w-full max-w-6xl mx-auto py-6 px-4 space-y-6 font-sans">
+    <div className="w-full max-w-6xl mx-auto py-4 sm:py-6 px-3 sm:px-4 space-y-4 sm:space-y-6 font-sans">
       {/* Top Header Card */}
-      <div className="p-5 rounded-3xl bg-white border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-4">
+      <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-ocean-950 text-white border border-ocean-800 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-ocean-950 text-gold-400 font-extrabold flex items-center justify-center text-lg shadow-md">
-            {member?.name ? member.name.charAt(0).toUpperCase() : 'M'}
+          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-gold-400 text-ocean-950 flex items-center justify-center font-black shadow-lg shrink-0">
+            <LayoutDashboard className="w-5 h-5 sm:w-6 sm:h-6" />
           </div>
-          <div>
-            <h1 className="font-black text-lg text-ocean-950 tracking-tight leading-none">
-              Welcome, {member?.name || 'EXIM Member'}
+          <div className="min-w-0 flex-1">
+            <h1 className="text-lg sm:text-xl font-black tracking-tight text-white leading-snug">
+              Member Dashboard
             </h1>
-            <p className="text-xs text-slate-500 font-medium mt-1">
-              {member?.companyName || 'EXIM Growth Trader'} • {member?.phone || 'Verified Session'}
+            <p className="text-xs text-slate-300 font-medium mt-0.5 leading-relaxed break-words">
+              Welcome, {member?.name || 'EXIM Member'} • {member?.companyName || 'EXIM Trader'}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0 w-full md:w-auto pt-2 md:pt-0 border-t md:border-t-0 border-ocean-800/80">
+          <button
+            type="button"
+            onClick={loadMemberPosts}
+            disabled={isLoading}
+            className="flex-1 md:flex-none px-3.5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-gold-400 border border-gold-400/30 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer whitespace-nowrap"
+            title="Reload latest trade lead stats"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+            <span>Refresh</span>
+          </button>
+
           <button
             type="button"
             onClick={onNavigateToGenerator}
-            className="px-4 py-2.5 rounded-xl bg-ocean-950 hover:bg-ocean-900 text-gold-400 font-bold text-xs flex items-center gap-2 shadow-md transition-all cursor-pointer"
+            className="flex-1 md:flex-none px-4 py-2.5 rounded-xl bg-gold-400 hover:bg-gold-500 text-ocean-950 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer whitespace-nowrap"
           >
-            <PlusCircle className="w-4 h-4 text-gold-400" />
-            <span>Create New Trade Post</span>
+            <PlusCircle className="w-4 h-4" />
+            <span>New Trade Post</span>
           </button>
-
-          {member && (
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="px-3 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>Logout</span>
-            </button>
-          )}
         </div>
       </div>
 
-      {/* Dashboard Overview Metric Cards (Clean 2x2 Grid Layout) */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
-        <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between">
-          <div>
-            <span className="text-[10px] sm:text-xs font-extrabold text-slate-400 uppercase tracking-wider block">Total Trade Posts</span>
-            <div className="text-2xl sm:text-3xl font-black text-ocean-950 mt-1">{totalCount}</div>
-          </div>
-          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-ocean-50 text-ocean-950 flex items-center justify-center font-bold shrink-0">
-            <Share2 className="w-4 h-4 sm:w-5 sm:h-5" />
-          </div>
+      {/* LEAD PERFORMANCE & ANALYTICS OVERVIEW GRID */}
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+          <h2 className="text-xs font-black text-ocean-950 uppercase tracking-wider flex items-center gap-1.5">
+            <BarChart3 className="w-4 h-4 text-gold-500" />
+            <span>Lead Performance & Traffic Analytics</span>
+          </h2>
+          <span className="text-[11px] font-extrabold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-lg border border-slate-200 shrink-0">
+            {scopeFilter === 'mine' ? 'My Trade Leads' : 'Community Leads'}
+          </span>
         </div>
 
-        <div className="p-4 sm:p-5 rounded-2xl bg-emerald-50/80 border border-emerald-200 shadow-sm flex items-center justify-between">
-          <div>
-            <span className="text-[10px] sm:text-xs font-extrabold text-emerald-800 uppercase tracking-wider block">Buy Requirements</span>
-            <div className="text-2xl sm:text-3xl font-black text-emerald-950 mt-1">{buyerCount}</div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex flex-col justify-between">
+            <div className="flex items-center justify-between text-slate-400">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider">Total Leads</span>
+              <Share2 className="w-4 h-4 text-ocean-900" />
+            </div>
+            <div className="text-2xl font-black text-ocean-950 mt-2">{totalCount}</div>
+            <span className="text-[10px] text-slate-400 font-semibold mt-1">Active Posts</span>
           </div>
-          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-sm shrink-0">
-            <ShoppingBag className="w-4 h-4 sm:w-5 sm:h-5" />
-          </div>
-        </div>
 
-        <div className="p-4 sm:p-5 rounded-2xl bg-amber-50/80 border border-amber-200 shadow-sm flex items-center justify-between">
-          <div>
-            <span className="text-[10px] sm:text-xs font-extrabold text-amber-800 uppercase tracking-wider block">Supply Offers</span>
-            <div className="text-2xl sm:text-3xl font-black text-amber-950 mt-1">{supplierCount}</div>
+          <div className="p-4 rounded-2xl bg-indigo-50/80 border border-indigo-200 shadow-sm flex flex-col justify-between">
+            <div className="flex items-center justify-between text-indigo-800">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider">Link Views</span>
+              <Eye className="w-4 h-4 text-indigo-600" />
+            </div>
+            <div className="text-2xl font-black text-indigo-950 mt-2">{totalViews}</div>
+            <span className="text-[10px] text-indigo-700 font-bold mt-1">Page Impressions</span>
           </div>
-          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-amber-600 text-white flex items-center justify-center font-bold shadow-sm shrink-0">
-            <Store className="w-4 h-4 sm:w-5 sm:h-5" />
-          </div>
-        </div>
 
-        <div className="p-4 sm:p-5 rounded-2xl bg-slate-900 text-white border border-slate-800 shadow-sm flex items-center justify-between">
-          <div>
-            <span className="text-[10px] sm:text-xs font-extrabold text-slate-400 uppercase tracking-wider block">Fulfilled / Closed</span>
-            <div className="text-2xl sm:text-3xl font-black text-gold-400 mt-1">{fulfilledCount}</div>
+          <div className="p-4 rounded-2xl bg-emerald-50/80 border border-emerald-200 shadow-sm flex flex-col justify-between">
+            <div className="flex items-center justify-between text-emerald-800">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider">WhatsApp Clicks</span>
+              <MessageSquare className="w-4 h-4 text-emerald-600 fill-emerald-100" />
+            </div>
+            <div className="text-2xl font-black text-emerald-950 mt-2">{totalClicks}</div>
+            <span className="text-[10px] text-emerald-700 font-bold mt-1">Direct Inquiries</span>
           </div>
-          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-800 text-emerald-400 flex items-center justify-center font-bold shrink-0">
-            <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5" />
+
+          <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200 shadow-sm flex flex-col justify-between">
+            <div className="flex items-center justify-between text-amber-800">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider">Conversion Rate</span>
+              <TrendingUp className="w-4 h-4 text-amber-600" />
+            </div>
+            <div className="text-2xl font-black text-amber-950 mt-2">{overallCTR}%</div>
+            <span className="text-[10px] text-amber-800 font-bold mt-1">Click-Through (CTR)</span>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-slate-900 text-white border border-slate-800 shadow-sm flex flex-col justify-between col-span-2 sm:col-span-1">
+            <div className="flex items-center justify-between text-slate-400">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider">Fulfilled Orders</span>
+              <CheckCircle2 className="w-4 h-4 text-gold-400" />
+            </div>
+            <div className="text-2xl font-black text-gold-400 mt-2">{fulfilledCount}</div>
+            <span className="text-[10px] text-slate-300 font-semibold mt-1">Deals Closed</span>
           </div>
         </div>
       </div>
@@ -588,17 +626,39 @@ export default function MemberDashboard({ onNavigateToGenerator, onEditPost, onI
                       {post.quantity_or_moq && <span>⚖️ {post.quantity_or_moq}</span>}
                       {post.origin_or_location && <span>📍 {post.origin_or_location}</span>}
                     </div>
+
+                    {/* Per-Post View & Click Analytics Indicators */}
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-900 font-extrabold text-[11px]" title="Total Link Impressions / Page Views">
+                        <Eye className="w-3 h-3 text-indigo-600" />
+                        <span>{Number(post.views_count || 0)} Views</span>
+                      </span>
+
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900 font-extrabold text-[11px]" title="Direct WhatsApp & Contact Inquiries">
+                        <MessageSquare className="w-3 h-3 text-emerald-600 fill-emerald-100" />
+                        <span>{Number(post.clicks_count || 0)} Inquiries</span>
+                      </span>
+
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-950 font-extrabold text-[11px]" title="Conversion Rate = (Clicks / Views) * 100">
+                        <TrendingUp className="w-3 h-3 text-amber-600" />
+                        <span>
+                          {Number(post.views_count || 0) > 0
+                            ? `${(((Number(post.clicks_count || 0)) / (Number(post.views_count || 0))) * 100).toFixed(1)}% CTR`
+                            : '0.0% CTR'}
+                        </span>
+                      </span>
+                    </div>
                   </div>
 
                   {/* Right Actions */}
-                  <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                  <div className="flex flex-wrap items-center gap-2 w-full md:w-auto pt-3 md:pt-0 border-t md:border-t-0 border-slate-200 shrink-0 justify-start md:justify-end">
                     {isOwner ? (
                       <>
                         {/* Visibility Option Toggle Button (Public vs Private) */}
                         <button
                           type="button"
                           onClick={() => handleToggleVisibility(post)}
-                          className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer border ${
+                          className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer border whitespace-nowrap ${
                             isPrivate
                               ? 'bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100'
                               : 'bg-blue-50 text-blue-900 border-blue-300 hover:bg-blue-100'
@@ -622,7 +682,7 @@ export default function MemberDashboard({ onNavigateToGenerator, onEditPost, onI
                         <button
                           type="button"
                           onClick={() => handleToggleStatus(post)}
-                          className={`px-3 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer border ${
+                          className={`px-3 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer border whitespace-nowrap ${
                             isFulfilled
                               ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
                               : 'bg-slate-200 text-slate-800 border-slate-300 hover:bg-slate-300'
@@ -636,7 +696,7 @@ export default function MemberDashboard({ onNavigateToGenerator, onEditPost, onI
                           <button
                             type="button"
                             onClick={() => onEditPost(details)}
-                            className="px-3 py-2 rounded-xl bg-ocean-950 text-gold-400 font-bold text-xs flex items-center gap-1.5 cursor-pointer hover:bg-ocean-900 shadow-sm"
+                            className="px-3 py-2 rounded-xl bg-ocean-950 text-gold-400 font-bold text-xs flex items-center gap-1.5 cursor-pointer hover:bg-ocean-900 shadow-sm whitespace-nowrap"
                           >
                             <Edit className="w-3.5 h-3.5" />
                             <span>Edit</span>
@@ -644,8 +704,8 @@ export default function MemberDashboard({ onNavigateToGenerator, onEditPost, onI
                         )}
                       </>
                     ) : (
-                      <span className="text-[11px] font-bold text-slate-400 bg-slate-100 border border-slate-200 px-3 py-2 rounded-xl">
-                        🔒 Community Member Lead
+                      <span className="text-[11px] font-bold text-slate-400 bg-slate-100 border border-slate-200 px-3 py-2 rounded-xl whitespace-nowrap">
+                        🔒 Community Lead
                       </span>
                     )}
 
@@ -654,7 +714,7 @@ export default function MemberDashboard({ onNavigateToGenerator, onEditPost, onI
                       <button
                         type="button"
                         onClick={() => onInspectPost(post.id)}
-                        className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center gap-1 cursor-pointer"
+                        className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center gap-1 cursor-pointer whitespace-nowrap"
                       >
                         <Eye className="w-3.5 h-3.5" />
                         <span>View Live</span>

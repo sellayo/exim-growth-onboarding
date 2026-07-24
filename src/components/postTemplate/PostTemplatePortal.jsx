@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import PostCardCanvas from './PostCardCanvas';
 import { EXIM_COMMODITY_CATALOG, getStockImageUrl } from '../../lib/stockImages';
-import { saveTradePost, signInWithEmail, signUpWithSupabase, signInWithSupabase } from '../../lib/supabase';
+import { saveTradePost, signInWithEmail, signUpWithSupabase, signInWithSupabase, generateCompanySlug } from '../../lib/supabase';
 import { getLoggedInMember, loginUserWithEmail, registerUserWithEmail, logoutMember } from '../../lib/memberAuth';
 import { 
   ShoppingBag, 
@@ -341,6 +341,12 @@ ${formData.product ? `📦 *Product / Cargo:* ${formData.product}\n` : ''}🛫 *
     if (formData.contactEmail?.trim()) contacts.push(`✉️ ${formData.contactEmail.trim()}`);
     if (formData.contactWebsite?.trim()) contacts.push(`🌐 ${formData.contactWebsite.trim()}`);
 
+    const companyForSlug = formData.companyName?.trim() || loggedInMember?.companyName || loggedInMember?.name;
+    if (companyForSlug) {
+      const profileSlug = generateCompanySlug(companyForSlug, loggedInMember?.id);
+      contacts.push(`🏢 *Verified Profile:* ${window.location.origin}/profile/${profileSlug}`);
+    }
+
     let contactBlock = '';
     if (contacts.length > 0) {
       contactBlock = `\n─────────────────────────────\n` + contacts.join('\n');
@@ -472,37 +478,20 @@ ${formData.product ? `📦 *Product / Cargo:* ${formData.product}\n` : ''}🛫 *
   return (
     <div className="w-full max-w-6xl mx-auto py-4 sm:py-6 px-3 sm:px-6 space-y-4 sm:space-y-6 font-sans">
       {/* Clean Header Bar */}
-      <div className="p-4 sm:p-5 rounded-3xl bg-white border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <h2 className="font-extrabold text-lg sm:text-xl text-ocean-950 tracking-tight leading-none">
+      <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-ocean-950 text-white border border-ocean-800 shadow-xl flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-gold-400 text-ocean-950 flex items-center justify-center font-black shadow-lg shrink-0">
+            <Wand2 className="w-5 h-5 sm:w-6 sm:h-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-lg sm:text-xl font-black tracking-tight text-white leading-snug">
               Trade Post Generator
-            </h2>
-            <span className="px-2.5 py-0.5 text-[10px] font-bold uppercase bg-gold-50 text-gold-700 border border-gold-300 rounded-full flex items-center gap-1">
-              <Sparkles className="w-3 h-3 text-gold-500" /> High Visibility Banners
-            </span>
+            </h1>
+            <p className="text-xs text-slate-300 font-medium mt-0.5 leading-relaxed break-words">
+              Generate 800x800 trade banners and formatted text for WhatsApp & social groups.
+            </p>
           </div>
-          <p className="text-[11px] sm:text-xs text-slate-500 font-medium mt-1">
-            Generate standardized 800x800 visual image banners & formatted text for WhatsApp & Social Groups.
-          </p>
         </div>
-
-        {loggedInMember && (
-          <div className="flex items-center gap-2 self-start sm:self-auto">
-            <span className="text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-300 px-3 py-1.5 rounded-xl flex items-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-              <span>{loggedInMember.name || 'Logged In'}</span>
-            </span>
-            <button
-              type="button"
-              onClick={handleMemberLogout}
-              className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs"
-              title="Logout"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        )}
       </div>
 
       {/* WHY CREATE AN ACCOUNT BANNER (COMPACT BULLET LIST) */}

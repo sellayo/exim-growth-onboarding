@@ -14,6 +14,9 @@ import PostTemplatePortal from './components/postTemplate/PostTemplatePortal';
 import PostDetailView from './components/postTemplate/PostDetailView';
 import MemberDashboard from './components/dashboard/MemberDashboard';
 import MemberSidebar from './components/dashboard/MemberSidebar';
+import AnalyticsView from './components/dashboard/AnalyticsView';
+import MemberProfileView from './components/dashboard/MemberProfileView';
+import PublicProfileView from './components/profile/PublicProfileView';
 import { submitOnboardingPayload } from './lib/supabase';
 
 const TOTAL_STEPS = 5;
@@ -36,10 +39,31 @@ export default function App() {
     return null;
   };
 
+  // Extract public profile ID/slug if navigating to /profile/:profileId
+  const getPublicProfileIdFromUrl = () => {
+    if (pathname.startsWith('/profile/') && !pathname.startsWith('/dashboard')) {
+      const id = pathname.replace('/profile/', '').trim();
+      return id || null;
+    }
+    if (pathname.startsWith('/company/')) {
+      const id = pathname.replace('/company/', '').trim();
+      return id || null;
+    }
+    if (hash.startsWith('#profile/') && !hash.startsWith('#dashboard')) {
+      const id = hash.replace('#profile/', '').trim();
+      return id || null;
+    }
+    return null;
+  };
+
   const currentPostId = getPostIdFromUrl();
+  const publicProfileId = getPublicProfileIdFromUrl();
   const isAdminRoute = pathname.startsWith('/admin') || hash === '#admin';
   const isPostTemplateRoute = pathname.startsWith('/post-template') || hash === '#post-template';
-  const isDashboardRoute = pathname.startsWith('/dashboard') || hash === '#dashboard';
+  const isDashboardRoute = (pathname === '/dashboard' || pathname === '/dashboard/') || hash === '#dashboard';
+  const isAnalyticsRoute = pathname.includes('analytics') || hash.includes('analytics');
+  const isMemberProfileEditRoute = pathname === '/dashboard/profile' || hash === '#dashboard/profile';
+  const isPublicProfileRoute = !!publicProfileId;
   const isPostDetailRoute = !!currentPostId;
 
   const [currentStep, setCurrentStep] = useState(0);
@@ -85,6 +109,16 @@ export default function App() {
     setPathname('/dashboard');
   };
 
+  const navigateToAnalytics = () => {
+    window.history.pushState({}, '', '/dashboard/analytics');
+    setPathname('/dashboard/analytics');
+  };
+
+  const navigateToProfile = () => {
+    window.history.pushState({}, '', '/dashboard/profile');
+    setPathname('/dashboard/profile');
+  };
+
   const navigateToPostDetail = (postId) => {
     window.history.pushState({}, '', `/post/${postId}`);
     setPathname(`/post/${postId}`);
@@ -99,6 +133,8 @@ export default function App() {
   const handleSidebarNavigate = (target) => {
     if (target === 'dashboard') navigateToDashboard();
     else if (target === 'generator') navigateToPostTemplate();
+    else if (target === 'analytics') navigateToAnalytics();
+    else if (target === 'profile') navigateToProfile();
     else if (target === 'home') navigateToHome();
   };
 
@@ -181,7 +217,17 @@ export default function App() {
     );
   }
 
-  // Route 3: Member Dashboard
+  // Route 3: Public Business Profile Page (/profile/:profileId)
+  if (isPublicProfileRoute) {
+    return (
+      <PublicProfileView
+        profileId={publicProfileId}
+        onBack={navigateToProfile}
+      />
+    );
+  }
+
+  // Route 4: Member Dashboard
   if (isDashboardRoute) {
     return (
       <MemberSidebar activeTab="dashboard" onNavigate={handleSidebarNavigate}>
@@ -194,7 +240,28 @@ export default function App() {
     );
   }
 
-  // Route 4: WhatsApp Post Template Generator
+  // Route 5: Dedicated Lead Analytics
+  if (isAnalyticsRoute) {
+    return (
+      <MemberSidebar activeTab="analytics" onNavigate={handleSidebarNavigate}>
+        <AnalyticsView
+          onInspectPost={(postId) => navigateToPostDetail(postId)}
+          onNavigateToGenerator={navigateToPostTemplate}
+        />
+      </MemberSidebar>
+    );
+  }
+
+  // Route 6: EXIM Business Profile Management (/dashboard/profile)
+  if (isMemberProfileEditRoute || (pathname.includes('profile') && !isPublicProfileRoute)) {
+    return (
+      <MemberSidebar activeTab="profile" onNavigate={handleSidebarNavigate}>
+        <MemberProfileView />
+      </MemberSidebar>
+    );
+  }
+
+  // Route 6: WhatsApp Post Template Generator
   if (isPostTemplateRoute) {
     return (
       <MemberSidebar activeTab="generator" onNavigate={handleSidebarNavigate}>

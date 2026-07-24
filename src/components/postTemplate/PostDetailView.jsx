@@ -31,7 +31,10 @@ import {
   updateTradePostStatus, 
   signUpWithSupabase, 
   signInWithSupabase,
-  checkPosterCommunityVerification
+  checkPosterCommunityVerification,
+  recordPostView,
+  recordPostClick,
+  generateCompanySlug
 } from '../../lib/supabase';
 import { getLoggedInMember, loginUserWithEmail, registerUserWithEmail, isPostOwner } from '../../lib/memberAuth';
 
@@ -62,6 +65,9 @@ export default function PostDetailView({ postId, onBackToGenerator }) {
         if (data) {
           const ver = await checkPosterCommunityVerification(data.contact_email, data.contact_phone);
           setPosterVerification(ver);
+          
+          // Record deduplicated post view impression (skips owner self-views)
+          recordPostView(postId, data);
         }
       } catch (err) {
         console.error('Failed to load post detail:', err);
@@ -175,6 +181,16 @@ export default function PostDetailView({ postId, onBackToGenerator }) {
     );
   }
 
+  const handleGoBack = () => {
+    if (window.history.length > 1 && document.referrer) {
+      window.history.back();
+    } else if (onBackToGenerator) {
+      onBackToGenerator();
+    } else {
+      window.location.href = '/dashboard';
+    }
+  };
+
   const details = post.raw_details || {};
   const isFulfilled = post.status === 'fulfilled';
 
@@ -184,11 +200,11 @@ export default function PostDetailView({ postId, onBackToGenerator }) {
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
         <button
           type="button"
-          onClick={onBackToGenerator}
+          onClick={handleGoBack}
           className="w-full sm:w-auto px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4 text-slate-500" />
-          <span>Back to Trade Portal</span>
+          <span>Back</span>
         </button>
 
         <div className="flex items-center gap-2">
@@ -389,16 +405,29 @@ export default function PostDetailView({ postId, onBackToGenerator }) {
                 </div>
 
                 {post.contact_phone && (
-                  <div className="sm:col-span-2 pt-2">
+                  <div className="sm:col-span-2 pt-2 space-y-2">
                     <a
                       href={`https://api.whatsapp.com/send?phone=${post.contact_phone.replace(/[^0-9]/g, '')}&text=${encodeURIComponent(`Hi ${post.contact_name || ''}, I saw your trade requirement for ${post.product_or_service || ''} on EXIM Growth Network.`)}`}
                       target="_blank"
                       rel="noopener noreferrer"
+                      onClick={() => recordPostClick(post.id)}
                       className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer"
                     >
                       <MessageSquare className="w-4 h-4 fill-current" />
                       <span>Contact Poster Direct on WhatsApp</span>
                     </a>
+
+                    {(post.company_name || post.user_id) && (
+                      <a
+                        href={`/profile/${generateCompanySlug(post.company_name, post.user_id)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full py-2.5 rounded-xl bg-ocean-950 hover:bg-ocean-900 text-gold-400 font-bold text-xs flex items-center justify-center gap-2 border border-gold-500/30 transition-all cursor-pointer shadow"
+                      >
+                        <Building className="w-4 h-4 text-gold-400" />
+                        <span>View Enterprise Profile Page</span>
+                      </a>
+                    )}
                   </div>
                 )}
               </div>

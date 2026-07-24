@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { getLoggedInMember } from './memberAuth';
+import { getLoggedInMember, isPostOwner } from './memberAuth';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
@@ -504,7 +504,22 @@ export async function fetchAllTradePosts(templateType = null) {
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (!error && data) return data;
+      if (!error && data) {
+        // Merge with local storage fallback counts if available
+        const localMaster = JSON.parse(localStorage.getItem('exim_trade_posts_all') || '[]');
+        return data.map(p => {
+          const localItem = localMaster.find(l => l.id === p.id || l.id?.toString() === p.id?.toString());
+          const remoteViews = Number(p.views_count || 0);
+          const localViews = Number(localItem?.views_count || 0);
+          const remoteClicks = Number(p.clicks_count || 0);
+          const localClicks = Number(localItem?.clicks_count || 0);
+          return {
+            ...p,
+            views_count: Math.max(remoteViews, localViews),
+            clicks_count: Math.max(remoteClicks, localClicks)
+          };
+        });
+      }
     } catch (err) {
       console.warn('Fetch from Supabase failed, reading LocalStorage:', err);
     }
@@ -670,4 +685,289 @@ export async function updateTradePostVisibility(postId, newVisibility) {
 
   return true;
 }
+
+/**
+ * Record a post view (impression) with session-based deduplication & owner self-view prevention
+ */
+export async function recordPostView(postId, postData = null) {
+  if (!postId) return false;
+
+  // 1. Owner Check: If visitor is logged in and is the owner of this post, IGNORE self-view!
+  const currentMember = getLoggedInMember();
+  if (currentMember && postData) {
+    if (isPostOwner(postData, currentMember)) {
+      return false;
+    }
+  }
+
+  // 2. Session Deduplication Check: 1 view per post per browser session
+  const sessionKey = `exim_viewed_post_${postId}`;
+  if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem(sessionKey)) {
+    return false;
+  }
+
+  // Mark session as viewed
+  if (typeof sessionStorage !== 'undefined') {
+    sessionStorage.setItem(sessionKey, '1');
+  }
+
+  // 3. Increment in Supabase (RPC first, direct update fallback)
+  if (supabase) {
+    try {
+      if (isValidUUID(postId)) {
+        const { error: rpcErr } = await supabase.rpc('increment_post_views', { target_post_id: postId });
+        if (rpcErr) {
+          console.warn('RPC increment_post_views notice (trying direct table update):', rpcErr.message);
+          const { data: curPost } = await supabase.from('trade_posts_all').select('views_count').eq('id', postId).single();
+          const curViews = Number(curPost?.views_count || 0);
+          await supabase.from('trade_posts_all').update({ views_count: curViews + 1 }).eq('id', postId);
+        }
+      } else {
+        const { data: curPost } = await supabase.from('trade_posts_all').select('views_count').eq('id', postId).single();
+        if (curPost) {
+          const curViews = Number(curPost.views_count || 0);
+          await supabase.from('trade_posts_all').update({ views_count: curViews + 1 }).eq('id', postId);
+        }
+      }
+    } catch (err) {
+      console.warn('Supabase post view increment notice:', err);
+    }
+  }
+
+  // 3. Update in LocalStorage fallback
+  const updateLocal = (key) => {
+    const list = JSON.parse(localStorage.getItem(key) || '[]');
+    const updated = list.map(item => {
+      if (item.id === postId || item.id?.toString() === postId?.toString()) {
+        const curViews = Number(item.views_count || 0);
+        return { ...item, views_count: curViews + 1 };
+      }
+      return item;
+    });
+    localStorage.setItem(key, JSON.stringify(updated));
+  };
+
+  updateLocal('exim_trade_posts_all');
+  ['posts_buy', 'posts_sell', 'posts_logistics', 'posts_exim_services', 'posts_questions'].forEach(c => updateLocal(`exim_${c}`));
+
+  return true;
+}
+
+/**
+ * Record a direct contact / WhatsApp click event for a post
+ */
+export async function recordPostClick(postId) {
+  if (!postId) return false;
+
+  // 1. Increment in Supabase (RPC first, direct update fallback)
+  if (supabase) {
+    try {
+      if (isValidUUID(postId)) {
+        const { error: rpcErr } = await supabase.rpc('increment_post_clicks', { target_post_id: postId });
+        if (rpcErr) {
+          console.warn('RPC increment_post_clicks notice (trying direct table update):', rpcErr.message);
+          const { data: curPost } = await supabase.from('trade_posts_all').select('clicks_count').eq('id', postId).single();
+          const curClicks = Number(curPost?.clicks_count || 0);
+          await supabase.from('trade_posts_all').update({ clicks_count: curClicks + 1 }).eq('id', postId);
+        }
+      } else {
+        const { data: curPost } = await supabase.from('trade_posts_all').select('clicks_count').eq('id', postId).single();
+        if (curPost) {
+          const curClicks = Number(curPost.clicks_count || 0);
+          await supabase.from('trade_posts_all').update({ clicks_count: curClicks + 1 }).eq('id', postId);
+        }
+      }
+    } catch (err) {
+      console.warn('Supabase post click increment notice:', err);
+    }
+  }
+
+  // 2. Update in LocalStorage fallback
+  const updateLocal = (key) => {
+    const list = JSON.parse(localStorage.getItem(key) || '[]');
+    const updated = list.map(item => {
+      if (item.id === postId || item.id?.toString() === postId?.toString()) {
+        const curClicks = Number(item.clicks_count || 0);
+        return { ...item, clicks_count: curClicks + 1 };
+      }
+      return item;
+    });
+    localStorage.setItem(key, JSON.stringify(updated));
+  };
+
+  updateLocal('exim_trade_posts_all');
+  ['posts_buy', 'posts_sell', 'posts_logistics', 'posts_exim_services', 'posts_questions'].forEach(c => updateLocal(`exim_${c}`));
+
+  return true;
+}
+
+/**
+ * Save Member EXIM Business Profile & 6-Image Gallery (Supabase + LocalStorage sync)
+ */
+export async function saveMemberProfile(profileData) {
+  if (!profileData || !profileData.user_id) return false;
+
+  if (supabase && isValidUUID(profileData.user_id)) {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .upsert({
+          id: profileData.user_id,
+          full_name: profileData.contact_name,
+          company_name: profileData.company_name,
+          phone_number: profileData.phone,
+          designation: profileData.designation,
+          role: profileData.role,
+          updated_at: new Date().toISOString()
+        });
+
+      if (error) console.warn('Supabase profile save notice:', error.message);
+    } catch (err) {
+      console.warn('Supabase save profile error:', err);
+    }
+  }
+
+  // Always save profile data locally for fast reading & offline fallback
+  const slug = generateCompanySlug(profileData.company_name, profileData.user_id);
+  const updatedProfile = { ...profileData, slug };
+
+  const profilesMap = JSON.parse(localStorage.getItem('exim_member_profiles') || '{}');
+  profilesMap[profileData.user_id] = updatedProfile;
+  localStorage.setItem('exim_member_profiles', JSON.stringify(profilesMap));
+
+  // Update local session
+  const currentSession = JSON.parse(localStorage.getItem('exim_member_session') || '{}');
+  if (currentSession) {
+    const updatedSession = {
+      ...currentSession,
+      name: profileData.contact_name || currentSession.name,
+      companyName: profileData.company_name || currentSession.companyName,
+      phone: profileData.phone || currentSession.phone,
+      role: profileData.role,
+      designation: profileData.designation,
+      profileSlug: slug
+    };
+    localStorage.setItem('exim_member_session', JSON.stringify(updatedSession));
+  }
+
+  return true;
+}
+
+/**
+ * Generate a clean URL slug from company name or user_id
+ */
+export function generateCompanySlug(companyName, userId = '') {
+  if (!companyName && !userId) return 'exim-trader';
+  
+  const base = (companyName || userId)
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+
+  return base || `profile-${userId}`;
+}
+
+/**
+ * Fetch Member Business Profile by Slug or ID (Preserves gallery_images & company specs)
+ */
+export async function fetchMemberProfileBySlug(slugOrId) {
+  if (!slugOrId) return null;
+
+  const cleanQuery = slugOrId.toLowerCase().trim();
+
+  // 1. Check LocalStorage profiles map (contains full company details + gallery_images)
+  const profilesMap = JSON.parse(localStorage.getItem('exim_member_profiles') || '{}');
+  const allProfiles = Object.values(profilesMap);
+
+  let matchedLocal = allProfiles.find(p => {
+    if (!p) return false;
+    if (p.user_id === slugOrId || p.slug === cleanQuery) return true;
+    const slugWithId = generateCompanySlug(p.company_name, p.user_id);
+    const slugWithoutId = generateCompanySlug(p.company_name, '');
+    return slugWithId === cleanQuery || slugWithoutId === cleanQuery;
+  });
+
+  // Direct ID key lookup fallback
+  if (!matchedLocal && profilesMap[slugOrId]) {
+    matchedLocal = profilesMap[slugOrId];
+  }
+
+  // Return matched local profile (with gallery images!)
+  if (matchedLocal) {
+    return matchedLocal;
+  }
+
+  // 2. Check logged in member session
+  const session = JSON.parse(localStorage.getItem('exim_member_session') || '{}');
+  if (session && session.id) {
+    const sessionSlug = generateCompanySlug(session.companyName || session.name, session.id);
+    const sessionSlugNoId = generateCompanySlug(session.companyName || session.name, '');
+
+    if (session.id === slugOrId || sessionSlug === cleanQuery || sessionSlugNoId === cleanQuery) {
+      const sessionProfile = profilesMap[session.id];
+      if (sessionProfile) return sessionProfile;
+
+      return {
+        user_id: session.id,
+        company_name: session.companyName || 'EXIM Global Enterprise',
+        contact_name: session.name || 'Verified Member',
+        phone: session.phone || '',
+        email: session.email || '',
+        role: session.role || 'exporter',
+        designation: session.designation || 'Managing Director',
+        slug: sessionSlug,
+        gallery_images: session.gallery_images || []
+      };
+    }
+  }
+
+  // 3. Fallback: Return first profile if single local profile exists
+  if (allProfiles.length === 1 && allProfiles[0]) {
+    return allProfiles[0];
+  }
+
+  return null;
+}
+
+/**
+ * Fetch Member Business Profile by user_id
+ */
+export async function fetchMemberProfile(userId) {
+  if (!userId) return null;
+
+  // 1. Try LocalStorage for fast instant access (includes compressed 6-image gallery)
+  const profilesMap = JSON.parse(localStorage.getItem('exim_member_profiles') || '{}');
+  if (profilesMap[userId]) {
+    return profilesMap[userId];
+  }
+
+  // 2. Fetch from Supabase profiles table
+  if (supabase && isValidUUID(userId)) {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      if (!error && data) {
+        return {
+          user_id: data.id,
+          company_name: data.company_name,
+          contact_name: data.full_name,
+          phone: data.phone_number,
+          email: data.email,
+          role: data.role,
+          designation: data.designation
+        };
+      }
+    } catch (err) {
+      console.warn('Supabase fetch profile notice:', err);
+    }
+  }
+
+  return null;
+}
+
+
 

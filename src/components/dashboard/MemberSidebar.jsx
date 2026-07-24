@@ -14,6 +14,7 @@ import {
   ChevronRight,
   LogIn,
   Sparkles,
+  BarChart3,
   Layers,
   ArrowRight
 } from 'lucide-react';
@@ -51,7 +52,6 @@ export default function MemberSidebar({ children, activeTab, onNavigate }) {
       label: 'Member Dashboard',
       shortLabel: 'Dashboard',
       icon: LayoutDashboard,
-      badge: 'Leads',
       onClick: () => {
         setIsMobileOpen(false);
         if (onNavigate) onNavigate('dashboard');
@@ -62,10 +62,29 @@ export default function MemberSidebar({ children, activeTab, onNavigate }) {
       label: 'Post Generator',
       shortLabel: 'Generator',
       icon: Wand2,
-      badge: '800x800',
       onClick: () => {
         setIsMobileOpen(false);
         if (onNavigate) onNavigate('generator');
+      }
+    },
+    {
+      id: 'analytics',
+      label: 'Lead Analytics',
+      shortLabel: 'Analytics',
+      icon: BarChart3,
+      onClick: () => {
+        setIsMobileOpen(false);
+        if (onNavigate) onNavigate('analytics');
+      }
+    },
+    {
+      id: 'profile',
+      label: 'EXIM Business Profile',
+      shortLabel: 'Profile',
+      icon: Building,
+      onClick: () => {
+        setIsMobileOpen(false);
+        if (onNavigate) onNavigate('profile');
       }
     },
     {
@@ -73,7 +92,6 @@ export default function MemberSidebar({ children, activeTab, onNavigate }) {
       label: 'Main Network Home',
       shortLabel: 'Home',
       icon: Globe,
-      badge: 'Public',
       onClick: () => {
         setIsMobileOpen(false);
         if (onNavigate) onNavigate('home');
@@ -83,41 +101,42 @@ export default function MemberSidebar({ children, activeTab, onNavigate }) {
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col md:flex-row font-sans text-slate-900 selection:bg-gold-500 selection:text-white">
-      {/* MOBILE TOP HEADER BAR */}
-      <div className="md:hidden bg-ocean-950 text-white px-4 py-3.5 flex items-center justify-between shadow-md sticky top-0 z-40">
-        <div className="flex items-center gap-2.5">
-          <img
-            src="/logo.png"
-            alt="EXIM Growth Network"
-            className="w-8 h-8 rounded-xl object-cover border border-gold-500/30 shrink-0 shadow"
-          />
-          <div>
-            <h1 className="font-extrabold text-sm leading-none">
-              <span className="text-[#38BDF8] font-black">EXIM Growth</span>{' '}
-              <span className="text-[#F57E13] font-black">Network</span>
-            </h1>
-            <span className="text-[10px] text-slate-300 font-medium">Platform Portal</span>
+      {/* MOBILE TOP HEADER & STICKY DROPDOWN CONTAINER */}
+      <div className="md:hidden sticky top-0 z-50 bg-ocean-950 border-b border-ocean-800 shadow-md">
+        <div className="text-white px-4 py-3.5 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <img
+              src="/logo.png"
+              alt="EXIM Growth Network"
+              className="w-8 h-8 rounded-xl object-cover border border-gold-500/30 shrink-0 shadow"
+            />
+            <div>
+              <h1 className="font-extrabold text-sm leading-none">
+                <span className="text-[#38BDF8] font-black">EXIM Growth</span>{' '}
+                <span className="text-[#F57E13] font-black">Network</span>
+              </h1>
+              <span className="text-[10px] text-slate-300 font-medium">Platform Portal</span>
+            </div>
           </div>
+
+          <button
+            type="button"
+            onClick={() => setIsMobileOpen(!isMobileOpen)}
+            className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
+          >
+            {isMobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setIsMobileOpen(!isMobileOpen)}
-          className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
-        >
-          {isMobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-        </button>
-      </div>
-
-      {/* MOBILE COLLAPSIBLE DRAWER */}
-      <AnimatePresence>
-        {isMobileOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="md:hidden bg-ocean-950 text-white border-b border-ocean-800 px-4 py-4 space-y-4 shadow-xl z-30 overflow-hidden"
-          >
+        {/* MOBILE COLLAPSIBLE DRAWER (ALWAYS VISIBLE UNDER STICKY HEADER) */}
+        <AnimatePresence>
+          {isMobileOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="bg-ocean-950 text-white border-t border-ocean-800 px-4 py-4 space-y-4 shadow-2xl max-h-[85vh] overflow-y-auto"
+            >
             {/* User Profile Teaser */}
             {member ? (
               <div className="p-3 rounded-2xl bg-ocean-900 border border-ocean-800 flex items-center gap-3">
@@ -162,11 +181,6 @@ export default function MemberSidebar({ children, activeTab, onNavigate }) {
                       <Icon className={`w-4 h-4 ${isActive ? 'text-ocean-950' : 'text-gold-400'}`} />
                       <span>{item.label}</span>
                     </div>
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full ${
-                      isActive ? 'bg-ocean-950 text-gold-400' : 'bg-ocean-900 text-slate-300'
-                    }`}>
-                      {item.badge}
-                    </span>
                   </button>
                 );
               })}
@@ -185,6 +199,7 @@ export default function MemberSidebar({ children, activeTab, onNavigate }) {
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
 
       {/* DESKTOP SIDEBAR (COLLAPSIBLE SIDE NAVIGATION) */}
       <aside 
@@ -230,14 +245,11 @@ export default function MemberSidebar({ children, activeTab, onNavigate }) {
               {!isCollapsed && (
                 <div className="min-w-0 flex-1 overflow-hidden">
                   <div className="font-extrabold text-xs text-white truncate">
-                    {member.name || 'Verified Member'}
+                    {member.name || 'EXIM Member'}
                   </div>
                   <div className="text-[11px] text-slate-400 truncate font-medium">
                     {member.companyName || member.email}
                   </div>
-                  <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400 font-bold mt-0.5">
-                    <ShieldCheck className="w-3 h-3" /> Verified Member
-                  </span>
                 </div>
               )}
             </div>
@@ -301,14 +313,6 @@ export default function MemberSidebar({ children, activeTab, onNavigate }) {
                   </div>
                   {!isCollapsed && <span>{item.label}</span>}
                 </div>
-
-                {!isCollapsed && (
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${
-                    isActive ? 'bg-ocean-950 text-gold-400 font-bold' : 'bg-ocean-900 text-slate-400'
-                  }`}>
-                    {item.badge}
-                  </span>
-                )}
               </button>
             );
           })}

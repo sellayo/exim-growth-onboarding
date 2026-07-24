@@ -118,6 +118,8 @@ CREATE TABLE IF NOT EXISTS public.trade_posts_all (
     contact_phone TEXT,
     contact_email TEXT,
     contact_website TEXT,
+    views_count INT DEFAULT 0,
+    clicks_count INT DEFAULT 0,
     raw_details JSONB DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -139,9 +141,32 @@ ALTER TABLE public.trade_posts_all ADD COLUMN IF NOT EXISTS contact_name TEXT;
 ALTER TABLE public.trade_posts_all ADD COLUMN IF NOT EXISTS contact_phone TEXT;
 ALTER TABLE public.trade_posts_all ADD COLUMN IF NOT EXISTS contact_email TEXT;
 ALTER TABLE public.trade_posts_all ADD COLUMN IF NOT EXISTS contact_website TEXT;
+ALTER TABLE public.trade_posts_all ADD COLUMN IF NOT EXISTS views_count INT DEFAULT 0;
+ALTER TABLE public.trade_posts_all ADD COLUMN IF NOT EXISTS clicks_count INT DEFAULT 0;
 ALTER TABLE public.trade_posts_all ADD COLUMN IF NOT EXISTS raw_details JSONB DEFAULT '{}'::jsonb;
 ALTER TABLE public.trade_posts_all ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
 ALTER TABLE public.trade_posts_all ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+
+-- --------------------------------------------------------------------
+-- ATOMIC POST VIEW & CLICK TRACKING FUNCTIONS (RPC)
+-- --------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.increment_post_views(target_post_id UUID)
+RETURNS VOID AS $$
+BEGIN
+    UPDATE public.trade_posts_all
+    SET views_count = COALESCE(views_count, 0) + 1
+    WHERE id = target_post_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION public.increment_post_clicks(target_post_id UUID)
+RETURNS VOID AS $$
+BEGIN
+    UPDATE public.trade_posts_all
+    SET clicks_count = COALESCE(clicks_count, 0) + 1
+    WHERE id = target_post_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Indexes for Trade Posts search & filter performance
 CREATE INDEX IF NOT EXISTS idx_trade_posts_template_type ON public.trade_posts_all(template_type);
