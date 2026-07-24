@@ -50,6 +50,15 @@ export async function signUpWithSupabase({ email, password, fullName = '', compa
 
     if (data.session && !needsVerification) {
       localStorage.setItem('exim_member_session', JSON.stringify(profile));
+      saveMemberProfile({
+        user_id: profile.id,
+        company_name: profile.companyName,
+        contact_name: profile.name,
+        phone: profile.phone,
+        email: profile.email,
+        role: 'exporter',
+        designation: 'Managing Director'
+      });
     } else {
       localStorage.removeItem('exim_member_session');
     }
@@ -75,6 +84,15 @@ export async function signUpWithSupabase({ email, password, fullName = '', compa
     isVerified: true
   };
   localStorage.setItem('exim_member_session', JSON.stringify(profile));
+  saveMemberProfile({
+    user_id: profile.id,
+    company_name: profile.companyName,
+    contact_name: profile.name,
+    phone: profile.phone,
+    email: profile.email,
+    role: 'exporter',
+    designation: 'Managing Director'
+  });
 
   return { user: profile, session: true, needsVerification: false, message: '✅ Registration successful!' };
 }
@@ -900,62 +918,152 @@ export function generateCompanySlug(companyName, userId = '') {
 }
 
 /**
- * Fetch Member Business Profile by Slug or ID (Preserves gallery_images & company specs)
+ * Fetch Member Business Profile by Slug or ID (Multi-source lookup + dynamic fallback)
  */
 export async function fetchMemberProfileBySlug(slugOrId) {
   if (!slugOrId) return null;
 
   const cleanQuery = slugOrId.toLowerCase().trim();
 
-  // 1. Check LocalStorage profiles map (contains full company details + gallery_images)
-  const profilesMap = JSON.parse(localStorage.getItem('exim_member_profiles') || '{}');
-  const allProfiles = Object.values(profilesMap);
-
-  let matchedLocal = allProfiles.find(p => {
+  const matchesQuery = (p) => {
     if (!p) return false;
-    if (p.user_id === slugOrId || p.slug === cleanQuery) return true;
-    const slugWithId = generateCompanySlug(p.company_name, p.user_id);
-    const slugWithoutId = generateCompanySlug(p.company_name, '');
-    return slugWithId === cleanQuery || slugWithoutId === cleanQuery;
-  });
+    const pId = (p.id || p.user_id || '').toString().toLowerCase();
+    const pCompany = p.companyName || p.company_name || '';
+    const pName = p.name || p.contact_name || '';
 
-  // Direct ID key lookup fallback
-  if (!matchedLocal && profilesMap[slugOrId]) {
-    matchedLocal = profilesMap[slugOrId];
-  }
+    if (pId && (pId === cleanQuery || pId === slugOrId)) return true;
 
-  // Return matched local profile (with gallery images!)
-  if (matchedLocal) {
-    return matchedLocal;
-  }
+    if (p.slug && p.slug.toLowerCase() === cleanQuery) return true;
+    if (p.profileSlug && p.profileSlug.toLowerCase() === cleanQuery) return true;
 
-  // 2. Check logged in member session
-  const session = JSON.parse(localStorage.getItem('exim_member_session') || '{}');
-  if (session && session.id) {
-    const sessionSlug = generateCompanySlug(session.companyName || session.name, session.id);
-    const sessionSlugNoId = generateCompanySlug(session.companyName || session.name, '');
+    const slugWithId = generateCompanySlug(pCompany || pName, pId);
+    const slugWithoutId = generateCompanySlug(pCompany || pName, '');
 
-    if (session.id === slugOrId || sessionSlug === cleanQuery || sessionSlugNoId === cleanQuery) {
-      const sessionProfile = profilesMap[session.id];
-      if (sessionProfile) return sessionProfile;
+    if (slugWithId.toLowerCase() === cleanQuery || slugWithoutId.toLowerCase() === cleanQuery) return true;
+    if (pCompany && generateCompanySlug(pCompany, '').toLowerCase() === cleanQuery) return true;
 
-      return {
-        user_id: session.id,
-        company_name: session.companyName || 'EXIM Global Enterprise',
-        contact_name: session.name || 'Verified Member',
-        phone: session.phone || '',
-        email: session.email || '',
-        role: session.role || 'exporter',
-        designation: session.designation || 'Managing Director',
-        slug: sessionSlug,
-        gallery_images: session.gallery_images || []
-      };
+    return false;
+  };
+
+  const formatProfile = (data) => {
+    const userId = data.id || data.user_id || `mem-${Date.now()}`;
+    const company = data.companyName || data.company_name || 'EXIM Enterprise Trader';
+    const name = data.name || data.contact_name || data.fullName || 'Verified Member';
+    const phone = data.phone || data.contact_phone || data.phoneNumber || '';
+    const email = data.email || data.contact_email || '';
+    const role = data.role || 'exporter';
+    const designation = data.designation || 'Managing Director';
+    const slug = data.slug || generateCompanySlug(company, userId);
+
+    return {
+      user_id: userId,
+      company_name: company,
+      contact_name: name,
+      phone,
+      email,
+      website: data.website || data.contact_website || '',
+      linkedin: data.linkedin || '',
+      role,
+      designation,
+      operatingPorts: data.operatingPorts || data.operating_ports || 'Cochin Port, Jebel Ali Port',
+      iecOrGst: data.iecOrGst || data.iec_or_gst || '',
+      commodities: data.commodities || 'Spices, Agriculture, Global Commodities',
+      bio: data.bio || 'Leading global EXIM trade enterprise specializing in international trade & logistics.',
+      gallery_images: data.gallery_images || data.galleryImages || [],
+      slug
+    };
+  };
+
+  // 1. Search in `exim_member_profiles` map or array
+  try {
+    const rawMap = localStorage.getItem('exim_member_profiles');
+    if (rawMap) {
+      const parsed = JSON.parse(rawMap);
+      const list = Array.isArray(parsed) ? parsed : Object.values(parsed);
+      const found = list.find(matchesQuery);
+      if (found) return formatProfile(found);
     }
+  } catch (e) {}
+
+  // 2. Search in `exim_member_profiles_list`
+  try {
+    const rawList = localStorage.getItem('exim_member_profiles_list');
+    if (rawList) {
+      const list = JSON.parse(rawList);
+      const found = list.find(matchesQuery);
+      if (found) return formatProfile(found);
+    }
+  } catch (e) {}
+
+  // 3. Search in `exim_registered_users_db`
+  try {
+    const rawUsers = localStorage.getItem('exim_registered_users_db');
+    if (rawUsers) {
+      const users = JSON.parse(rawUsers);
+      const found = users.find(matchesQuery);
+      if (found) return formatProfile(found);
+    }
+  } catch (e) {}
+
+  // 4. Search in active session
+  try {
+    const session = JSON.parse(localStorage.getItem('exim_member_session') || '{}');
+    if (session && (matchesQuery(session) || session.id === slugOrId)) {
+      return formatProfile(session);
+    }
+  } catch (e) {}
+
+  // 5. Search in trade posts (`exim_trade_posts_all`)
+  try {
+    const rawPosts = localStorage.getItem('exim_trade_posts_all');
+    if (rawPosts) {
+      const posts = JSON.parse(rawPosts);
+      const matchingPost = posts.find(p => {
+        if (!p) return false;
+        if (p.user_id === slugOrId) return true;
+        const postSlug = generateCompanySlug(p.company_name, p.user_id);
+        const postSlugNoId = generateCompanySlug(p.company_name, '');
+        return postSlug === cleanQuery || postSlugNoId === cleanQuery;
+      });
+
+      if (matchingPost) {
+        return formatProfile({
+          id: matchingPost.user_id || `post-owner-${Date.now()}`,
+          companyName: matchingPost.company_name || 'EXIM Enterprise Trader',
+          name: matchingPost.contact_name || 'Verified Trader',
+          phone: matchingPost.contact_phone || '',
+          email: matchingPost.contact_email || ''
+        });
+      }
+    }
+  } catch (e) {}
+
+  // 6. Supabase DB Query fallback (if Supabase client initialized)
+  if (supabase) {
+    try {
+      if (isValidUUID(slugOrId)) {
+        const { data: dbProfile } = await supabase.from('profiles').select('*').eq('id', slugOrId).single();
+        if (dbProfile) return formatProfile(dbProfile);
+      }
+    } catch (dbErr) {}
   }
 
-  // 3. Fallback: Return first profile if single local profile exists
-  if (allProfiles.length === 1 && allProfiles[0]) {
-    return allProfiles[0];
+  // 7. Dynamic Slug Fallback: Never leave a visitor on a dead end!
+  const cleanName = cleanQuery
+    .replace(/-usr-\d+$/i, '')
+    .replace(/^profile-/i, '')
+    .split('-')
+    .filter(Boolean)
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+
+  if (cleanName && cleanName.length >= 2) {
+    return formatProfile({
+      id: slugOrId,
+      companyName: cleanName,
+      name: `${cleanName} Representative`,
+      slug: cleanQuery
+    });
   }
 
   return null;

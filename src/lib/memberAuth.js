@@ -68,9 +68,21 @@ export function registerUserWithEmail({ email, password, name = '', companyName 
   const { password: _p, ...sessionUser } = newUser;
   localStorage.setItem(SESSION_KEY, JSON.stringify(sessionUser));
 
-  // Also update directory store
+  // Also update directory store & profiles map
   const allProfiles = JSON.parse(localStorage.getItem(PROFILES_KEY) || '[]');
   localStorage.setItem(PROFILES_KEY, JSON.stringify([sessionUser, ...allProfiles.filter(p => p.id !== sessionUser.id)]));
+
+  const profilesMap = JSON.parse(localStorage.getItem('exim_member_profiles') || '{}');
+  profilesMap[sessionUser.id] = {
+    user_id: sessionUser.id,
+    company_name: sessionUser.companyName,
+    contact_name: sessionUser.name,
+    phone: sessionUser.phone,
+    email: sessionUser.email,
+    role: 'exporter',
+    designation: 'Managing Director'
+  };
+  localStorage.setItem('exim_member_profiles', JSON.stringify(profilesMap));
 
   return sessionUser;
 }
