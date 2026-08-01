@@ -1013,32 +1013,7 @@ export async function fetchMemberProfileBySlug(slugOrId) {
     }
   } catch (e) {}
 
-  // 5. Search in trade posts (`exim_trade_posts_all`)
-  try {
-    const rawPosts = localStorage.getItem('exim_trade_posts_all');
-    if (rawPosts) {
-      const posts = JSON.parse(rawPosts);
-      const matchingPost = posts.find(p => {
-        if (!p) return false;
-        if (p.user_id === slugOrId) return true;
-        const postSlug = generateCompanySlug(p.company_name, p.user_id);
-        const postSlugNoId = generateCompanySlug(p.company_name, '');
-        return postSlug === cleanQuery || postSlugNoId === cleanQuery;
-      });
-
-      if (matchingPost) {
-        return formatProfile({
-          id: matchingPost.user_id || `post-owner-${Date.now()}`,
-          companyName: matchingPost.company_name || 'EXIM Enterprise Trader',
-          name: matchingPost.contact_name || 'Verified Trader',
-          phone: matchingPost.contact_phone || '',
-          email: matchingPost.contact_email || ''
-        });
-      }
-    }
-  } catch (e) {}
-
-  // 6. Supabase DB Query fallback (if Supabase client initialized)
+  // 5. Supabase DB Query fallback (if Supabase client initialized)
   if (supabase) {
     try {
       if (isValidUUID(slugOrId)) {
@@ -1048,24 +1023,7 @@ export async function fetchMemberProfileBySlug(slugOrId) {
     } catch (dbErr) {}
   }
 
-  // 7. Dynamic Slug Fallback: Never leave a visitor on a dead end!
-  const cleanName = cleanQuery
-    .replace(/-usr-\d+$/i, '')
-    .replace(/^profile-/i, '')
-    .split('-')
-    .filter(Boolean)
-    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ');
-
-  if (cleanName && cleanName.length >= 2) {
-    return formatProfile({
-      id: slugOrId,
-      companyName: cleanName,
-      name: `${cleanName} Representative`,
-      slug: cleanQuery
-    });
-  }
-
+  // Never create or return a business profile for guest / non-logged-in users
   return null;
 }
 
@@ -1106,6 +1064,145 @@ export async function fetchMemberProfile(userId) {
   }
 
   return null;
+}
+
+/**
+ * Send an In-Platform Trade Inquiry / Proposal
+ */
+export async function sendTradeInquiry(inquiryPayload) {
+  const currentMember = getLoggedInMember();
+  const inquiryId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `inq-${Date.now()}`;
+  
+  const record = {
+    id: inquiryId,
+    post_id: inquiryPayload.postId || null,
+    post_title: inquiryPayload.postTitle || 'Trade Requirement',
+    post_type: inquiryPayload.postType || 'buyer',
+    receiver_id: inquiryPayload.receiverId || null,
+    receiver_email: (inquiryPayload.receiverEmail || '').trim().toLowerCase(),
+    receiver_phone: (inquiryPayload.receiverPhone || '').replace(/[^0-9]/g, ''),
+    receiver_company: inquiryPayload.receiverCompany || 'EXIM Trader',
+    sender_id: currentMember?.id || inquiryPayload.senderId || null,
+    sender_name: (inquiryPayload.senderName || currentMember?.name || 'Verified Member').trim(),
+    sender_company: (inquiryPayload.senderCompany || currentMember?.companyName || 'EXIM Enterprise').trim(),
+    sender_phone: (inquiryPayload.senderPhone || currentMember?.phone || '').trim(),
+    sender_email: (inquiryPayload.senderEmail || currentMember?.email || '').trim().toLowerCase(),
+    sender_designation: inquiryPayload.senderDesignation || currentMember?.designation || 'Managing Director',
+    offered_price: inquiryPayload.offeredPrice || '',
+    quantity_moq: inquiryPayload.quantityMoq || '',
+    port_location: inquiryPayload.portLocation || '',
+    timeline: inquiryPayload.timeline || '',
+    message: inquiryPayload.message || '',
+    status: 'pending',
+    created_at: new Date().toISOString()
+  };
+
+  // 1. Try Supabase DB insert if client exists
+  if (supabase) {
+    try {
+      const { data: dbData, error: dbErr } = await supabase
+        .from('trade_leads_inquiries')
+        .insert([record])
+        .select();
+
+      if (!dbErr && dbData && dbData.length > 0) {
+        console.log('✅ Trade inquiry saved to Supabase trade_leads_inquiries table');
+      }
+    } catch (err) {
+      console.warn('Supabase inquiry insert notice:', err);
+    }
+  }
+
+  // 2. Always persist to LocalStorage fallback
+  try {
+    const existing = JSON.parse(localStorage.getItem('exim_trade_leads_inquiries') || '[]');
+    const filtered = existing.filter(i => i.id !== record.id);
+    localStorage.setItem('exim_trade_leads_inquiries', JSON.stringify([record, ...filtered]));
+  } catch (e) {
+    console.error('Failed to save trade inquiry to local storage:', e);
+  }
+
+  return record;
+}
+
+/**
+ * Fetch Received Inquiries (Inbound leads for the user's published posts)
+ */
+export async function fetchReceivedInquiries(userId, userEmail, userPhone) {
+  const cleanEmail = (userEmail || '').trim().toLowerCase();
+  const cleanPhone = (userPhone || '').replace(/[^0-9]/g, '').slice(-8);
+
+  let allInquiries = [];
+
+  // Local storage
+  try {
+    allInquiries = JSON.parse(localStorage.getItem('exim_trade_leads_inquiries') || '[]');
+  } catch (e) {}
+
+  // Supabase DB
+  if (supabase) {
+    try {
+      const { data: dbInquiries, error: dbErr } = await supabase
+        .from('trade_leads_inquiries')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!dbErr && dbInquiries) {
+        const combined = [...dbInquiries, ...allInquiries];
+        const map = new Map();
+        combined.forEach(item => map.set(item.id, item));
+        allInquiries = Array.from(map.values());
+      }
+    } catch (dbErr) {}
+  }
+
+  return allInquiries.filter(inq => {
+    if (!inq) return false;
+    if (userId && inq.receiver_id === userId) return true;
+    if (cleanEmail && inq.receiver_email && inq.receiver_email === cleanEmail) return true;
+    if (cleanPhone && inq.receiver_phone && inq.receiver_phone.includes(cleanPhone)) return true;
+    return false;
+  }).sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+}
+
+/**
+ * Fetch Sent Inquiries (Outbound leads submitted by the user)
+ */
+export async function fetchSentInquiries(userId, userEmail, userPhone) {
+  const cleanEmail = (userEmail || '').trim().toLowerCase();
+  const cleanPhone = (userPhone || '').replace(/[^0-9]/g, '').slice(-8);
+
+  let allInquiries = [];
+
+  // Local storage
+  try {
+    allInquiries = JSON.parse(localStorage.getItem('exim_trade_leads_inquiries') || '[]');
+  } catch (e) {}
+
+  // Supabase DB
+  if (supabase) {
+    try {
+      const { data: dbInquiries, error: dbErr } = await supabase
+        .from('trade_leads_inquiries')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!dbErr && dbInquiries) {
+        const combined = [...dbInquiries, ...allInquiries];
+        const map = new Map();
+        combined.forEach(item => map.set(item.id, item));
+        allInquiries = Array.from(map.values());
+      }
+    } catch (dbErr) {}
+  }
+
+  return allInquiries.filter(inq => {
+    if (!inq) return false;
+    if (userId && inq.sender_id === userId) return true;
+    if (cleanEmail && inq.sender_email && inq.sender_email === cleanEmail) return true;
+    if (cleanPhone && inq.sender_phone && inq.sender_phone.includes(cleanPhone)) return true;
+    return false;
+  }).sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
 }
 
 

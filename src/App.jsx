@@ -17,6 +17,7 @@ import MemberSidebar from './components/dashboard/MemberSidebar';
 import AnalyticsView from './components/dashboard/AnalyticsView';
 import MemberProfileView from './components/dashboard/MemberProfileView';
 import PublicProfileView from './components/profile/PublicProfileView';
+import LeadsInquiriesView from './components/dashboard/LeadsInquiriesView';
 import GuestAuthGate from './components/auth/GuestAuthGate';
 import { submitOnboardingPayload } from './lib/supabase';
 import { getLoggedInMember } from './lib/memberAuth';
@@ -78,6 +79,7 @@ export default function App() {
   const isPostTemplateRoute = pathname.startsWith('/post-template') || hash === '#post-template';
   const isDashboardRoute = (pathname === '/dashboard' || pathname === '/dashboard/') || hash === '#dashboard';
   const isAnalyticsRoute = pathname.includes('analytics') || hash.includes('analytics');
+  const isLeadsRoute = pathname.includes('leads') || hash.includes('leads');
   const isMemberProfileEditRoute = pathname === '/dashboard/profile' || hash === '#dashboard/profile';
   const isPublicProfileRoute = !!publicProfileId;
   const isPostDetailRoute = !!currentPostId;
@@ -130,6 +132,11 @@ export default function App() {
     setPathname('/dashboard/analytics');
   };
 
+  const navigateToLeads = () => {
+    window.history.pushState({}, '', '/dashboard/leads');
+    setPathname('/dashboard/leads');
+  };
+
   const navigateToProfile = () => {
     window.history.pushState({}, '', '/dashboard/profile');
     setPathname('/dashboard/profile');
@@ -148,6 +155,7 @@ export default function App() {
 
   const handleSidebarNavigate = (target) => {
     if (target === 'dashboard') navigateToDashboard();
+    else if (target === 'leads') navigateToLeads();
     else if (target === 'generator') navigateToPostTemplate();
     else if (target === 'analytics') navigateToAnalytics();
     else if (target === 'profile') navigateToProfile();
@@ -276,6 +284,26 @@ export default function App() {
         ) : (
           <GuestAuthGate
             targetFeature="analytics"
+            onAuthSuccess={(user) => setMember(user)}
+            onNavigateToGenerator={navigateToPostTemplate}
+          />
+        )}
+      </MemberSidebar>
+    );
+  }
+
+  // Route 6: Trade Leads & Direct Inquiries (/dashboard/leads)
+  if (isLeadsRoute) {
+    return (
+      <MemberSidebar activeTab="leads" onNavigate={handleSidebarNavigate}>
+        {member ? (
+          <LeadsInquiriesView
+            onInspectPost={(postId) => navigateToPostDetail(postId)}
+            onNavigateToGenerator={navigateToPostTemplate}
+          />
+        ) : (
+          <GuestAuthGate
+            targetFeature="leads"
             onAuthSuccess={(user) => setMember(user)}
             onNavigateToGenerator={navigateToPostTemplate}
           />

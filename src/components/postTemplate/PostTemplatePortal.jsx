@@ -341,10 +341,13 @@ ${formData.product ? `📦 *Product / Cargo:* ${formData.product}\n` : ''}🛫 *
     if (formData.contactEmail?.trim()) contacts.push(`✉️ ${formData.contactEmail.trim()}`);
     if (formData.contactWebsite?.trim()) contacts.push(`🌐 ${formData.contactWebsite.trim()}`);
 
-    const companyForSlug = formData.companyName?.trim() || loggedInMember?.companyName || loggedInMember?.name;
-    if (companyForSlug) {
-      const profileSlug = generateCompanySlug(companyForSlug, loggedInMember?.id);
-      contacts.push(`🏢 *Verified Profile:* ${window.location.origin}/profile/${profileSlug}`);
+    // Attach profile link ONLY for logged in members
+    if (loggedInMember) {
+      const companyForSlug = formData.companyName?.trim() || loggedInMember?.companyName || loggedInMember?.name;
+      if (companyForSlug) {
+        const profileSlug = generateCompanySlug(companyForSlug, loggedInMember?.id);
+        contacts.push(`🏢 *Verified Profile:* ${window.location.origin}/profile/${profileSlug}`);
+      }
     }
 
     let contactBlock = '';

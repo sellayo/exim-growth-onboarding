@@ -24,8 +24,10 @@ import {
   Copy,
   Check,
   Sparkles,
-  Unlock
+  Unlock,
+  Send
 } from 'lucide-react';
+import ConnectInquiryModal from './ConnectInquiryModal';
 import { 
   fetchSingleTradePost, 
   updateTradePostStatus, 
@@ -55,6 +57,7 @@ export default function PostDetailView({ postId, onBackToGenerator }) {
   const [authSuccessMsg, setAuthSuccessMsg] = useState('');
   const [copiedLink, setCopiedLink] = useState(false);
   const [statusUpdating, setStatusUpdating] = useState(false);
+  const [showInquiryModal, setShowInquiryModal] = useState(false);
 
   useEffect(() => {
     async function loadPost() {
@@ -406,25 +409,40 @@ export default function PostDetailView({ postId, onBackToGenerator }) {
 
                 {post.contact_phone && (
                   <div className="sm:col-span-2 pt-2 space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!member) {
+                          setShowAuthModal(true);
+                        } else {
+                          setShowInquiryModal(true);
+                        }
+                      }}
+                      className="w-full py-3.5 rounded-xl bg-gradient-to-r from-gold-500 via-amber-500 to-gold-400 hover:from-gold-400 hover:to-amber-400 text-slate-950 font-black text-xs flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer transform hover:-translate-y-0.5 active:translate-y-0"
+                    >
+                      <Send className="w-4 h-4 fill-current" />
+                      <span>Connect & Send In-Platform Inquiry</span>
+                    </button>
+
                     <a
                       href={`https://api.whatsapp.com/send?phone=${post.contact_phone.replace(/[^0-9]/g, '')}&text=${encodeURIComponent(`Hi ${post.contact_name || ''}, I saw your trade requirement for ${post.product_or_service || ''} on EXIM Growth Network.`)}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={() => recordPostClick(post.id)}
-                      className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer"
+                      className="w-full py-2.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-bold text-xs flex items-center justify-center gap-2 border border-emerald-500/30 transition-all cursor-pointer"
                     >
                       <MessageSquare className="w-4 h-4 fill-current" />
                       <span>Contact Poster Direct on WhatsApp</span>
                     </a>
 
-                    {(post.company_name || post.user_id) && (
+                    {post.user_id && (
                       <a
                         href={`/profile/${generateCompanySlug(post.company_name, post.user_id)}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="w-full py-2.5 rounded-xl bg-ocean-950 hover:bg-ocean-900 text-gold-400 font-bold text-xs flex items-center justify-center gap-2 border border-gold-500/30 transition-all cursor-pointer shadow"
+                        className="w-full py-2 rounded-xl bg-ocean-950 hover:bg-ocean-900 text-slate-300 hover:text-gold-400 font-medium text-[11px] flex items-center justify-center gap-2 border border-ocean-800 transition-all cursor-pointer"
                       >
-                        <Building className="w-4 h-4 text-gold-400" />
+                        <Building className="w-3.5 h-3.5 text-gold-400" />
                         <span>View Enterprise Profile Page</span>
                       </a>
                     )}
@@ -662,6 +680,13 @@ export default function PostDetailView({ postId, onBackToGenerator }) {
           </motion.div>
         </div>
       )}
+
+      {/* In-Platform Connect Inquiry Modal */}
+      <ConnectInquiryModal
+        post={post}
+        isOpen={showInquiryModal}
+        onClose={() => setShowInquiryModal(false)}
+      />
     </div>
   );
 }

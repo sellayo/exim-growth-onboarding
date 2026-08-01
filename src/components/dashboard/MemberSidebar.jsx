@@ -17,7 +17,8 @@ import {
   BarChart3,
   Layers,
   ArrowRight,
-  Lock
+  Lock,
+  Inbox
 } from 'lucide-react';
 import { getLoggedInMember, logoutMember } from '../../lib/memberAuth';
 import { signOutSupabase } from '../../lib/supabase';
@@ -56,6 +57,16 @@ export default function MemberSidebar({ children, activeTab, onNavigate }) {
       onClick: () => {
         setIsMobileOpen(false);
         if (onNavigate) onNavigate('dashboard');
+      }
+    },
+    {
+      id: 'leads',
+      label: 'Trade Leads & Inquiries',
+      shortLabel: 'Inquiries',
+      icon: Inbox,
+      onClick: () => {
+        setIsMobileOpen(false);
+        if (onNavigate) onNavigate('leads');
       }
     },
     {
